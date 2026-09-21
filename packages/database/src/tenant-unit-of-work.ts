@@ -1,4 +1,4 @@
-import type { Prisma } from './generated/prisma/client.js';
+import type { OrganizationMembership, Prisma } from './generated/prisma/client.js';
 import { InvitationRepository } from './repositories/invitation-repository.js';
 import { MembershipRepository } from './repositories/membership-repository.js';
 import { OrganizationRepository } from './repositories/organization-repository.js';
@@ -15,6 +15,7 @@ export interface TenantTransaction {
   memberships: MembershipRepository;
   organizations: OrganizationRepository;
   refreshSessions: RefreshSessionRepository;
+  actorMembership: OrganizationMembership;
   transaction: Prisma.TransactionClient;
 }
 
@@ -47,7 +48,6 @@ export class TenantUnitOfWork {
             userId: context.userId,
           },
         },
-        select: { id: true },
       });
 
       if (membership === null) {
@@ -55,6 +55,7 @@ export class TenantUnitOfWork {
       }
 
       return operation({
+        actorMembership: membership,
         invitations: new InvitationRepository(transaction),
         memberships: new MembershipRepository(transaction),
         organizations: new OrganizationRepository(transaction),

@@ -2,6 +2,7 @@ export { createDatabaseClient, type DatabaseClient } from './client.js';
 export {
   AuthenticationRepository,
   type AuthMembership,
+  type CurrentUserIdentity,
   type InvitationAcceptanceOutcome,
   type InvitationAcceptanceResult,
   type LoginIdentity,

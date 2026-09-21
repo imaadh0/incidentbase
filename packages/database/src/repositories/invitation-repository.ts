@@ -6,4 +6,15 @@ export class InvitationRepository {
   public findById(id: string): Promise<OrganizationInvitation | null> {
     return this.transaction.organizationInvitation.findFirst({ where: { id } });
   }
+
+  public create(input: {
+    email: string;
+    expiresAt: Date;
+    invitedByUserId: string;
+    organizationId: string;
+    role: OrganizationInvitation['role'];
+    tokenHash: string;
+  }): Promise<OrganizationInvitation> {
+    return this.transaction.organizationInvitation.create({ data: input });
+  }
 }

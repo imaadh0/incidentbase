@@ -23,4 +23,3 @@ All application promises are awaited or supervised. Unexpected top-level failure
 ## Pending decisions
 
 Tenant RLS, optimistic concurrency, transactional outbox, immutable audit records, and escalation locking will be documented in the milestones that introduce them.
-

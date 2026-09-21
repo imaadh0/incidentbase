@@ -22,4 +22,3 @@ Copy `.env.example` to `.env` before running services. Environment values are va
 ## Architecture
 
 See [DECISIONS.md](./DECISIONS.md) for the decisions that shape the system and `docs/` for operational and architectural notes.
-

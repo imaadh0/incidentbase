@@ -24,8 +24,23 @@ export const apiEnvironmentSchema = runtimeSchema
     API_HOST: z.string().min(1).default('0.0.0.0'),
     API_PORT: z.coerce.number().int().positive().max(65_535).default(4000),
     WEB_ORIGIN: z.url(),
+    DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_URL: z.url(),
     METRICS_TOKEN: z.string().min(32),
+    JWT_SECRET: z.string().min(32),
+    AUTH_ISSUER: z.string().min(1).default('incidentbase'),
+    AUTH_AUDIENCE: z.string().min(1).default('incidentbase-api'),
+    ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().max(3600).default(900),
+    REFRESH_TOKEN_TTL_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(60 * 60 * 24 * 90)
+      .default(60 * 60 * 24 * 30),
+    COOKIE_SECURE: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   })
   .refine(telemetryRequirement.check, telemetryRequirement);

@@ -2,3 +2,19 @@ export { healthStatusSchema } from './health.js';
 export type { HealthStatus } from './health.js';
 export { jobEnvelopeSchema } from './jobs.js';
 export type { JobEnvelope } from './jobs.js';
+export {
+  emailSchema,
+  invitationRequestSchema,
+  loginRequestSchema,
+  membershipStatusSchema,
+  membershipUpdateRequestSchema,
+  organizationRoleSchema,
+  passwordSchema,
+  registerRequestSchema,
+} from './auth.js';
+export type {
+  InvitationRequest,
+  LoginRequest,
+  MembershipUpdateRequest,
+  RegisterRequest,
+} from './auth.js';

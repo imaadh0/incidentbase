@@ -43,6 +43,12 @@ importers:
 
   apps/api:
     dependencies:
+      '@incidentbase/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@incidentbase/authorization':
+        specifier: workspace:*
+        version: link:../../packages/authorization
       '@incidentbase/config':
         specifier: workspace:*
         version: link:../../packages/config

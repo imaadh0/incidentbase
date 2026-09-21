@@ -43,8 +43,11 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
     API_HOST: '127.0.0.1',
     API_PORT: '4000',
     WEB_ORIGIN: 'http://localhost:3000',
+    DATABASE_URL: testDatabaseUrl,
     REDIS_URL: 'redis://localhost:6379',
     METRICS_TOKEN: 'a-secure-test-token-with-32-characters',
+    JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
+    COOKIE_SECURE: 'false',
     OTEL_ENABLED: 'false',
   });
 

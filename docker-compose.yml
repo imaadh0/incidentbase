@@ -63,8 +63,11 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 4000
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://incidentbase:local-development-password-change-me@postgres:5432/incidentbase}
       REDIS_URL: redis://redis:6379
       METRICS_TOKEN: ${METRICS_TOKEN:-local-development-metrics-token-change-me}
+      JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-me-now}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     healthcheck:

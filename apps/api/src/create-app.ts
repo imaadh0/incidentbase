@@ -4,14 +4,17 @@ import helmet from 'helmet';
 import type { Logger } from 'pino';
 
 import type { ApiEnvironment } from '@incidentbase/config';
+import type { AccessTokenService } from '@incidentbase/auth';
 import type { TenantUnitOfWork } from '@incidentbase/database';
 import type { ServiceMetrics } from '@incidentbase/observability';
 
-import { errorHandler } from './middleware/error-handler.js';
+import { createErrorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { createRequestContextMiddleware } from './middleware/request-context.js';
 import { createRequestMetricsMiddleware } from './middleware/request-metrics.js';
 import { createHealthRouter, type ReadinessCheck } from './routes/health.js';
+import { createAuthRouter } from './routes/auth.js';
+import type { AuthenticationService } from './auth/authentication-service.js';
 import {
   createTenantMembershipRouter,
   type TenantPrincipalResolver,
@@ -22,12 +25,18 @@ export interface TenantBoundaryOptions {
   unitOfWork: TenantUnitOfWork;
 }
 
+export interface AuthenticationOptions {
+  accessTokens: AccessTokenService;
+  service: AuthenticationService;
+}
+
 export interface CreateAppOptions {
   environment: ApiEnvironment;
   logger: Logger;
   metrics: ServiceMetrics;
   readinessChecks?: Readonly<Record<string, ReadinessCheck>>;
   tenantBoundary?: TenantBoundaryOptions;
+  authentication?: AuthenticationOptions;
 }
 
 export function createApp(options: CreateAppOptions): Express {
@@ -41,8 +50,8 @@ export function createApp(options: CreateAppOptions): Express {
       origin: options.environment.WEB_ORIGIN,
     }),
   );
-  app.use(express.json({ limit: '1mb' }));
   app.use(createRequestContextMiddleware(options.logger));
+  app.use(express.json({ limit: '1mb' }));
   app.use(createRequestMetricsMiddleware(options.metrics));
   app.use(
     createHealthRouter({
@@ -54,11 +63,22 @@ export function createApp(options: CreateAppOptions): Express {
         : { readinessChecks: options.readinessChecks }),
     }),
   );
+  if (options.authentication !== undefined) {
+    app.use(
+      createAuthRouter({
+        accessTokenTtlSeconds: options.environment.ACCESS_TOKEN_TTL_SECONDS,
+        accessTokens: options.authentication.accessTokens,
+        cookieSecure: options.environment.COOKIE_SECURE,
+        refreshTokenTtlSeconds: options.environment.REFRESH_TOKEN_TTL_SECONDS,
+        service: options.authentication.service,
+      }),
+    );
+  }
   if (options.tenantBoundary !== undefined) {
     app.use(createTenantMembershipRouter(options.tenantBoundary));
   }
   app.use(notFoundHandler);
-  app.use(errorHandler);
+  app.use(createErrorHandler(options.logger));
 
   return app;
 }

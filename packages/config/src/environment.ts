@@ -41,6 +41,7 @@ export const workerEnvironmentSchema = runtimeSchema
 export const webEnvironmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   NEXT_PUBLIC_API_BASE_URL: z.string().startsWith('/').default('/api/v1'),
+  NEXT_OUTPUT_MODE: z.enum(['default', 'standalone']).default('default'),
 });
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;

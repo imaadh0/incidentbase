@@ -12,3 +12,6 @@ API and worker processes handle `SIGINT` and `SIGTERM`. They stop accepting new 
 
 Production secrets live in a VPS-side environment file or GitHub Actions secrets. They must never be committed, embedded in images, or included in logs.
 
+## Web build output
+
+Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing requires symlink privileges. Container builds set the validated value to `standalone` for a minimal production runtime image.

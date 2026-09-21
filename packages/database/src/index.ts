@@ -1,5 +1,14 @@
 export { createDatabaseClient, type DatabaseClient } from './client.js';
 export {
+  AuthenticationRepository,
+  type AuthMembership,
+  type InvitationAcceptanceOutcome,
+  type InvitationAcceptanceResult,
+  type LoginIdentity,
+  type RefreshRotationOutcome,
+  type RefreshRotationResult,
+} from './authentication-repository.js';
+export {
   TenantAccessDeniedError,
   TenantUnitOfWork,
   type TenantContext,

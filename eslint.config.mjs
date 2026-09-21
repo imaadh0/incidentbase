@@ -1,17 +1,18 @@
 import eslint from '@eslint/js';
+import { FlatCompat } from '@eslint/eslintrc';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
+const nextConfigs = compat.extends('next/core-web-vitals', 'next/typescript').map((config) => ({
+  ...config,
+  files: ['apps/web/**/*.{ts,tsx}'],
+}));
+
 export default tseslint.config(
   {
-    ignores: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/coverage/**',
-      '**/.turbo/**',
-    ],
+    ignores: ['**/node_modules/**', '**/dist/**', '**/.next/**', '**/coverage/**', '**/.turbo/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -36,6 +37,6 @@ export default tseslint.config(
       globals: { ...globals.browser, ...globals.node },
     },
   },
+  ...nextConfigs,
   prettier,
 );
-

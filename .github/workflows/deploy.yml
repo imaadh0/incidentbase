@@ -73,6 +73,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   deploy:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     needs: images
     runs-on: ubuntu-latest
     environment: production

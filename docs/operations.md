@@ -20,4 +20,6 @@ Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing r
 
 The production GitHub environment requires `VPS_HOST`, `VPS_USER`, `VPS_APP_PATH`, `VPS_SSH_KEY`, and a pinned `VPS_KNOWN_HOSTS` entry. The VPS keeps its own Compose environment file and must already be authenticated to GHCR when images are private.
 
+SSH deployment is disabled until the repository variable `DEPLOY_ENABLED` is explicitly set to `true`. Image builds and publication remain active, allowing CI and GHCR to be verified before VPS credentials are configured.
+
 The current Nginx configuration serves HTTP. Add the production hostname and mounted TLS certificate paths before exposing port 443; certificate issuance remains an operator action because it requires control of DNS and the VPS.

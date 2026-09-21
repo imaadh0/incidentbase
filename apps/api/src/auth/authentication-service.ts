@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  AccessTokenService,
   createOpaqueToken,
   hashOpaqueToken,
   hashPassword,
   verifyPassword,
 } from '@incidentbase/auth';
+import type { AccessTokenService } from '@incidentbase/auth';
 import type {
   AuthMembership,
   AuthenticationRepository,

@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 
-import { AccessTokenService, verifyCsrfToken } from '@incidentbase/auth';
+import { verifyCsrfToken } from '@incidentbase/auth';
+import type { AccessTokenService } from '@incidentbase/auth';
 
 export const accessCookieName = 'incidentbase_access';
 export const refreshCookieName = 'incidentbase_refresh';

@@ -272,9 +272,7 @@ function handleMembershipMutationError(error: unknown): never {
     typeof error === 'object' &&
     error !== null &&
     'message' in error &&
-    String((error as { message: unknown }).message).includes(
-      'must retain at least one active owner',
-    )
+    String(error.message).includes('must retain at least one active owner')
   ) {
     throw new ApplicationError({
       code: 'LAST_OWNER_REQUIRED',

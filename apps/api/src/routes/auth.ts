@@ -5,8 +5,8 @@ import { loginRequestSchema, registerRequestSchema } from '@incidentbase/contrac
 
 import { ApplicationError } from '../errors/application-error.js';
 import {
-  AuthenticationService,
   AuthenticationServiceError,
+  type AuthenticationService,
   type SessionResult,
 } from '../auth/authentication-service.js';
 import {

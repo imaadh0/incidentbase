@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { AccessTokenService, hashOpaqueToken } from '@incidentbase/auth';
 import { apiEnvironmentSchema, parseEnvironment } from '@incidentbase/config';
@@ -19,7 +20,25 @@ import { authenticateRequest } from '../src/auth/request-authentication.js';
 import { createApp } from '../src/create-app.js';
 
 const testDatabaseUrl = process.env.API_TEST_DATABASE_URL;
+const runtimeTestDatabaseUrl = process.env.API_TEST_RUNTIME_DATABASE_URL;
+if (testDatabaseUrl !== undefined && runtimeTestDatabaseUrl === undefined) {
+  throw new Error('API_TEST_RUNTIME_DATABASE_URL is required when API_TEST_DATABASE_URL is set.');
+}
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
+const accountResponseSchema = z.object({
+  data: z.object({
+    memberships: z.array(
+      z.object({
+        role: z.enum(['OWNER', 'ADMIN', 'RESPONDER', 'REPORTER']),
+        status: z.enum(['INVITED', 'ACTIVE', 'SUSPENDED']),
+      }),
+    ),
+    user: z.object({ email: z.string(), id: z.uuid() }),
+  }),
+});
+const errorResponseSchema = z.object({
+  error: z.object({ code: z.string(), message: z.string() }),
+});
 
 function cookieValue(setCookies: string[], name: string): string {
   const cookie = setCookies.find((candidate) => candidate.startsWith(`${name}=`));
@@ -36,7 +55,8 @@ describeWithDatabase.sequential('authentication and membership API', () => {
   if (testDatabaseUrl === undefined) return;
 
   const database = createDatabaseClient({ connectionString: testDatabaseUrl });
-  const repository = new AuthenticationRepository(database);
+  const runtimeDatabase = createDatabaseClient({ connectionString: runtimeTestDatabaseUrl! });
+  const repository = new AuthenticationRepository(runtimeDatabase);
   const accessTokens = new AccessTokenService({
     audience: 'incidentbase-api',
     issuer: 'incidentbase',
@@ -69,7 +89,7 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     metrics: createServiceMetrics('api-auth-test'),
     tenantBoundary: {
       resolvePrincipal: (incomingRequest) => authenticateRequest(incomingRequest, accessTokens),
-      unitOfWork: new TenantUnitOfWork(database),
+      unitOfWork: new TenantUnitOfWork(runtimeDatabase),
     },
   });
   let registeredCookies: string[] = [];
@@ -85,6 +105,7 @@ describeWithDatabase.sequential('authentication and membership API', () => {
   afterAll(async () => {
     await database.organization.deleteMany();
     await database.user.deleteMany();
+    await runtimeDatabase.$disconnect();
     await database.$disconnect();
   });
 
@@ -99,12 +120,13 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     expect(response.status, response.text).toBe(201);
 
     registeredCookies = responseCookies(response);
-    registeredUserId = String(response.body.data.user.id);
+    const body = accountResponseSchema.parse(response.body as unknown);
+    registeredUserId = body.data.user.id;
     expect(registeredCookies.some((cookie) => cookie.startsWith('incidentbase_access='))).toBe(
       true,
     );
     expect(registeredCookies.some((cookie) => cookie.includes('HttpOnly'))).toBe(true);
-    expect(response.body.data.memberships[0]).toMatchObject({
+    expect(body.data.memberships[0]).toMatchObject({
       role: OrganizationRole.OWNER,
       status: MembershipStatus.ACTIVE,
     });
@@ -124,18 +146,21 @@ describeWithDatabase.sequential('authentication and membership API', () => {
       .send({ email: 'registered@example.test', password: 'wrong password' })
       .expect(401);
 
-    expect(unknown.body.error.message).toBe(wrongPassword.body.error.message);
+    expect(errorResponseSchema.parse(unknown.body as unknown).error.message).toBe(
+      errorResponseSchema.parse(wrongPassword.body as unknown).error.message,
+    );
   });
 
   it('returns the current user and memberships from the access cookie', async () => {
     const accessCookie = cookieValue(registeredCookies, 'incidentbase_access');
     const response = await request(app).get('/auth/me').set('Cookie', accessCookie).expect(200);
 
-    expect(response.body.data.user).toMatchObject({
+    const body = accountResponseSchema.parse(response.body as unknown);
+    expect(body.data.user).toMatchObject({
       email: 'registered@example.test',
       id: registeredUserId,
     });
-    expect(response.body.data.memberships).toHaveLength(1);
+    expect(body.data.memberships).toHaveLength(1);
   });
 
   it('returns a stable conflict for duplicate registration', async () => {
@@ -150,7 +175,9 @@ describeWithDatabase.sequential('authentication and membership API', () => {
       })
       .expect(409);
 
-    expect(response.body.error.code).toBe('REGISTRATION_CONFLICT');
+    expect(errorResponseSchema.parse(response.body as unknown).error.code).toBe(
+      'REGISTRATION_CONFLICT',
+    );
   });
 
   it('requires CSRF for cookie-authenticated mutations', async () => {
@@ -352,6 +379,8 @@ describeWithDatabase.sequential('authentication and membership API', () => {
       .set('authorization', `Bearer ${ownerToken}`)
       .send({ status: MembershipStatus.SUSPENDED })
       .expect(409);
-    expect(response.body.error.code).toBe('LAST_OWNER_REQUIRED');
+    expect(errorResponseSchema.parse(response.body as unknown).error.code).toBe(
+      'LAST_OWNER_REQUIRED',
+    );
   });
 });

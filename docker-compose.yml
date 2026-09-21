@@ -53,6 +53,8 @@ services:
     image: ${API_IMAGE:-incidentbase-api:local}
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       otel-collector:
@@ -63,7 +65,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 4000
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://incidentbase:local-development-password-change-me@postgres:5432/incidentbase}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://incidentbase_app:local-runtime-password-change-me@postgres:5432/incidentbase}
       REDIS_URL: redis://redis:6379
       METRICS_TOKEN: ${METRICS_TOKEN:-local-development-metrics-token-change-me}
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-me-now}
@@ -84,6 +86,22 @@ services:
       start_period: 15s
     networks:
       - edge
+      - backend
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: migrate
+    image: ${MIGRATE_IMAGE:-incidentbase-migrate:local}
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-postgresql://incidentbase:local-development-password-change-me@postgres:5432/incidentbase}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://incidentbase_app:local-runtime-password-change-me@postgres:5432/incidentbase}
+    networks:
       - backend
 
   worker:

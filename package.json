@@ -7,6 +7,14 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "argon2",
+      "esbuild",
+      "prisma"
+    ]
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",

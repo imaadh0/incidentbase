@@ -15,6 +15,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY packages/auth/package.json packages/auth/package.json
+COPY packages/authorization/package.json packages/authorization/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
@@ -32,11 +34,17 @@ ENV NODE_ENV=production
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
+COPY packages/auth/package.json packages/auth/package.json
+COPY packages/authorization/package.json packages/authorization/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/observability/package.json packages/observability/package.json
 RUN pnpm install --prod --frozen-lockfile
+
+FROM dependencies AS migrate
+COPY packages/database ./packages/database
+CMD ["sh", "-c", "pnpm --filter @incidentbase/database db:migrate:deploy && pnpm --filter @incidentbase/database db:provision:runtime"]
 
 FROM node:22-bookworm-slim AS api
 ENV NODE_ENV=production
@@ -46,6 +54,8 @@ COPY --chown=node:node --from=service-production-dependencies /app/node_modules 
 COPY --chown=node:node --from=service-production-dependencies /app/apps/api/node_modules ./apps/api/node_modules
 COPY --chown=node:node --from=service-production-dependencies /app/packages ./packages
 COPY --chown=node:node --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --chown=node:node --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --chown=node:node --from=builder /app/packages/authorization/dist ./packages/authorization/dist
 COPY --chown=node:node --from=builder /app/packages/config/dist ./packages/config/dist
 COPY --chown=node:node --from=builder /app/packages/contracts/dist ./packages/contracts/dist
 COPY --chown=node:node --from=builder /app/packages/database/dist ./packages/database/dist

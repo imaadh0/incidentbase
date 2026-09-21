@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
+    "db:provision:runtime": "node scripts/provision-runtime-role.mjs",
     "lint": "eslint src test prisma.config.ts --no-error-on-unmatched-pattern",
     "test": "vitest run --pool=threads --maxWorkers=1",
     "test:coverage": "vitest run --coverage --pool=threads --maxWorkers=1",

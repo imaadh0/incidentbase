@@ -34,7 +34,14 @@ For local isolation tests, start PostgreSQL with the test-only override:
 docker compose -f docker-compose.yml -f docker-compose.test.yml up -d postgres
 ```
 
-Create separate repository and API test databases, apply the migration history to each, and set `DATABASE_TEST_URL` and `API_TEST_DATABASE_URL`. CI performs these steps and will not skip the database isolation suites.
+The one-shot `migrate` service applies migrations with `DATABASE_MIGRATION_URL`, then creates or
+updates the login role encoded in `DATABASE_URL`. That login is forced to remain non-superuser,
+`NOBYPASSRLS`, and a member of `incidentbase_runtime`; API containers receive only `DATABASE_URL`.
+
+Create separate repository and API test databases and apply the migration history to each. Set
+`DATABASE_TEST_URL` and `API_TEST_DATABASE_URL` to the migration/fixture login, provision the runtime
+role in the API test database, and set `API_TEST_RUNTIME_DATABASE_URL` to that restricted login. CI
+performs these steps and will not skip the database isolation suites.
 
 ## Web build output
 

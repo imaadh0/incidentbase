@@ -48,7 +48,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       matrix:
-        service: [web, api, worker]
+        service: [web, api, worker, migrate]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3

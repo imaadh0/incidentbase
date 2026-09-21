@@ -42,6 +42,16 @@ All tenant-owned tables carry `organization_id`, use composite tenant keys for r
 
 Deferred constraint triggers reject any committed organization state without at least one membership whose role is `OWNER` and status is `ACTIVE`. Deferral permits ownership transfer inside one atomic transaction while preventing ownerless organizations, suspension of the sole owner, or deletion of the sole owner. This invariant lives in PostgreSQL so no API, worker, script, or future service can bypass it.
 
+## ADR-007: Short-lived JWT access with rotating opaque refresh sessions
+
+**Status:** Accepted
+
+Passwords are hashed with Argon2id. Successful authentication issues a short-lived signed JWT access token and a high-entropy opaque refresh token in `HttpOnly`, `SameSite=Strict` cookies; production cookies are also `Secure`. Cookie-authenticated mutations require a matching double-submit CSRF token.
+
+Only a SHA-256 digest of each refresh token is stored. Refresh tokens are single-use and rotate within a session family. Reuse of a replaced token revokes the entire family, limiting damage from token theft while preserving server-side logout and logout-all controls. Access tokens identify only the global user: tenant authorization is re-evaluated from active database membership on every tenant-scoped transaction and remains subject to forced RLS.
+
+Invitation tokens follow the same opaque-token rule: the database stores only a digest, and acceptance atomically verifies the invited email, expiry, and single-use status. Authentication operations that must run before a tenant context exists are exposed through narrowly scoped security-definer functions; application connections still use the restricted runtime role.
+
 ## Pending decisions
 
 Optimistic concurrency, transactional outbox, immutable audit records, and escalation locking will be documented in the milestones that introduce them.

@@ -16,6 +16,7 @@
   "dependencies": {
     "@incidentbase/config": "workspace:*",
     "@incidentbase/contracts": "workspace:*",
+    "@incidentbase/database": "workspace:*",
     "@incidentbase/observability": "workspace:*",
     "cors": "^2.8.5",
     "express": "^5.1.0",

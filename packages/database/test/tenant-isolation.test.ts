@@ -10,7 +10,7 @@ import {
   TenantUnitOfWork,
 } from '../src/index.js';
 
-const testDatabaseUrl = process.env.TEST_DATABASE_URL;
+const testDatabaseUrl = process.env.DATABASE_TEST_URL;
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
 
 describeWithDatabase.sequential('tenant database boundary', () => {
@@ -157,13 +157,10 @@ describeWithDatabase.sequential('tenant database boundary', () => {
     let operationRan = false;
 
     await expect(
-      unitOfWork.withTenant(
-        { organizationId: ids.organizationA, userId: ids.suspended },
-        () => {
-          operationRan = true;
-          return Promise.resolve();
-        },
-      ),
+      unitOfWork.withTenant({ organizationId: ids.organizationA, userId: ids.suspended }, () => {
+        operationRan = true;
+        return Promise.resolve();
+      }),
     ).rejects.toBeInstanceOf(TenantAccessDeniedError);
 
     expect(operationRan).toBe(false);

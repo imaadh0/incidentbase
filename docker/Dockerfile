@@ -13,6 +13,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
 COPY packages/observability/package.json packages/observability/package.json
 RUN pnpm install --frozen-lockfile
 
@@ -29,6 +30,7 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/config/package.json packages/config/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
 COPY packages/observability/package.json packages/observability/package.json
 RUN pnpm install --prod --frozen-lockfile
 
@@ -42,6 +44,7 @@ COPY --chown=node:node --from=service-production-dependencies /app/packages ./pa
 COPY --chown=node:node --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --chown=node:node --from=builder /app/packages/config/dist ./packages/config/dist
 COPY --chown=node:node --from=builder /app/packages/contracts/dist ./packages/contracts/dist
+COPY --chown=node:node --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --chown=node:node --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --chown=node:node apps/api/package.json ./apps/api/package.json
 EXPOSE 4000
@@ -72,4 +75,3 @@ COPY --chown=node:node --from=builder /app/apps/web/.next/static ./apps/web/.nex
 COPY --chown=node:node --from=builder /app/apps/web/public ./apps/web/public
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
-

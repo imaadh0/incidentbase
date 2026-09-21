@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import type { Logger } from 'pino';
 
 import type { ApiEnvironment } from '@incidentbase/config';
+import type { TenantUnitOfWork } from '@incidentbase/database';
 import type { ServiceMetrics } from '@incidentbase/observability';
 
 import { errorHandler } from './middleware/error-handler.js';
@@ -11,12 +12,22 @@ import { notFoundHandler } from './middleware/not-found.js';
 import { createRequestContextMiddleware } from './middleware/request-context.js';
 import { createRequestMetricsMiddleware } from './middleware/request-metrics.js';
 import { createHealthRouter, type ReadinessCheck } from './routes/health.js';
+import {
+  createTenantMembershipRouter,
+  type TenantPrincipalResolver,
+} from './routes/tenant-memberships.js';
+
+export interface TenantBoundaryOptions {
+  resolvePrincipal: TenantPrincipalResolver;
+  unitOfWork: TenantUnitOfWork;
+}
 
 export interface CreateAppOptions {
   environment: ApiEnvironment;
   logger: Logger;
   metrics: ServiceMetrics;
   readinessChecks?: Readonly<Record<string, ReadinessCheck>>;
+  tenantBoundary?: TenantBoundaryOptions;
 }
 
 export function createApp(options: CreateAppOptions): Express {
@@ -43,6 +54,9 @@ export function createApp(options: CreateAppOptions): Express {
         : { readinessChecks: options.readinessChecks }),
     }),
   );
+  if (options.tenantBoundary !== undefined) {
+    app.use(createTenantMembershipRouter(options.tenantBoundary));
+  }
   app.use(notFoundHandler);
   app.use(errorHandler);
 

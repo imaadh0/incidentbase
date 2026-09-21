@@ -12,6 +12,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: incidentbase
+          POSTGRES_USER: incidentbase
+          POSTGRES_PASSWORD: ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U incidentbase -d incidentbase"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_TEST_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_database_test
+      API_TEST_DATABASE_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_api_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,6 +39,20 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Create isolation test databases
+        env:
+          PGPASSWORD: ci-database-password
+        run: |
+          createdb --host 127.0.0.1 --username incidentbase incidentbase_database_test
+          createdb --host 127.0.0.1 --username incidentbase incidentbase_api_test
+      - name: Apply tenancy migrations to repository test database
+        env:
+          DATABASE_MIGRATION_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_database_test
+        run: pnpm --filter @incidentbase/database db:migrate:deploy
+      - name: Apply tenancy migrations to API test database
+        env:
+          DATABASE_MIGRATION_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_api_test
+        run: pnpm --filter @incidentbase/database db:migrate:deploy
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

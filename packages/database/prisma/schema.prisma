@@ -1,0 +1,109 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  RESPONDER
+  REPORTER
+
+  @@map("organization_role")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+
+  @@map("membership_status")
+}
+
+model User {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  email               String                   @unique
+  displayName         String                   @map("display_name")
+  passwordHash        String?                  @map("password_hash")
+  createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships         OrganizationMembership[]
+  invitationsCreated  OrganizationInvitation[] @relation("InvitationCreator")
+  refreshSessions     RefreshSession[]
+
+  @@map("users")
+}
+
+model Organization {
+  id              String                   @id @default(uuid()) @db.Uuid
+  slug            String                   @unique
+  name            String
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships     OrganizationMembership[]
+  invitations     OrganizationInvitation[]
+  refreshSessions RefreshSession[]
+
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id             String           @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  role           OrganizationRole
+  status         MembershipStatus @default(INVITED)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitations    OrganizationInvitation[] @relation("InvitationCreatorMembership")
+  refreshSessions RefreshSession[]
+
+  @@id([organizationId, id])
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_memberships")
+}
+
+model OrganizationInvitation {
+  id                  String           @default(uuid()) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
+  email               String
+  role                OrganizationRole
+  tokenHash           String           @unique @map("token_hash")
+  invitedByUserId     String           @map("invited_by_user_id") @db.Uuid
+  expiresAt           DateTime         @map("expires_at") @db.Timestamptz(3)
+  acceptedAt          DateTime?        @map("accepted_at") @db.Timestamptz(3)
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedByUser       User             @relation("InvitationCreator", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  creatorMembership   OrganizationMembership @relation("InvitationCreatorMembership", fields: [organizationId, invitedByUserId], references: [organizationId, userId], onDelete: Restrict)
+
+  @@id([organizationId, id])
+  @@index([organizationId, email])
+  @@map("organization_invitations")
+}
+
+model RefreshSession {
+  id             String       @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  tokenHash      String       @unique @map("token_hash")
+  expiresAt      DateTime     @map("expires_at") @db.Timestamptz(3)
+  revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membership     OrganizationMembership @relation(fields: [organizationId, userId], references: [organizationId, userId], onDelete: Cascade)
+
+  @@id([organizationId, id])
+  @@index([userId])
+  @@map("refresh_sessions")
+}

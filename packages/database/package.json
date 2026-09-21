@@ -1,0 +1,29 @@
+{
+  "name": "@incidentbase/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "prisma generate && tsup src/index.ts --format esm --dts --clean",
+    "db:generate": "prisma generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "lint": "eslint src test prisma.config.ts --no-error-on-unmatched-pattern",
+    "test": "vitest run --pool=threads --maxWorkers=1",
+    "test:coverage": "vitest run --coverage --pool=threads --maxWorkers=1",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "@vitest/coverage-v8": "^3.2.4",
+    "prisma": "7.10.0",
+    "tsup": "^8.5.0"
+  }
+}

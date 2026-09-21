@@ -2,6 +2,7 @@ node_modules/
 .pnpm-store/
 .turbo/
 dist/
+packages/database/src/generated/
 coverage/
 .next/
 playwright-report/

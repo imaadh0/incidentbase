@@ -7,8 +7,8 @@ describe('logger redaction contract', () => {
   it('redacts credential-shaped fields', async () => {
     let output = '';
     const destination = new Writable({
-      write(chunk, _encoding, callback) {
-        output += chunk.toString();
+      write(chunk: unknown, _encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+        output += Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
         callback();
       },
     });

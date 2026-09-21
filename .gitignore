@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+coverage/
+.next/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/
+

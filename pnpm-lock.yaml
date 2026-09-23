@@ -147,6 +147,9 @@ importers:
       '@incidentbase/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@incidentbase/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@incidentbase/observability':
         specifier: workspace:*
         version: link:../../packages/observability

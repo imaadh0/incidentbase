@@ -47,7 +47,20 @@ export const apiEnvironmentSchema = runtimeSchema
 
 export const workerEnvironmentSchema = runtimeSchema
   .extend({
+    DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_URL: z.url(),
+    ESCALATION_RECONCILIATION_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(300_000)
+      .default(30_000),
+    ESCALATION_SCHEDULE_HORIZON_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(60)
+      .max(604_800)
+      .default(86_400),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(100).default(10),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })

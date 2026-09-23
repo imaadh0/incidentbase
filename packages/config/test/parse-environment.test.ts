@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { apiEnvironmentSchema, ConfigurationError, parseEnvironment } from '../src/index.js';
+import {
+  apiEnvironmentSchema,
+  ConfigurationError,
+  parseEnvironment,
+  workerEnvironmentSchema,
+} from '../src/index.js';
 
 const validEnvironment = {
   NODE_ENV: 'test',
@@ -53,5 +58,16 @@ describe('parseEnvironment', () => {
         OTEL_ENABLED: 'true',
       }),
     ).toThrow(/OTEL_EXPORTER_OTLP_ENDPOINT/);
+  });
+
+  it('requires a restricted database URL for the worker', () => {
+    const result = parseEnvironment('worker', workerEnvironmentSchema, {
+      DATABASE_URL: 'postgresql://incidentbase_worker_app:password@localhost:5432/incidentbase',
+      OTEL_ENABLED: 'false',
+      REDIS_URL: 'redis://localhost:6379',
+    });
+
+    expect(result.ESCALATION_RECONCILIATION_INTERVAL_MS).toBe(30_000);
+    expect(result.ESCALATION_SCHEDULE_HORIZON_SECONDS).toBe(86_400);
   });
 });

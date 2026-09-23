@@ -5,7 +5,9 @@ import type { ZodType } from 'zod';
 import { jobEnvelopeSchema, type JobEnvelope } from '@incidentbase/contracts';
 
 export interface JobHandler<TPayload = unknown> {
-  handle: (envelope: JobEnvelope & { payload: TPayload }) => Promise<void>;
+  handle: {
+    bivarianceHack(envelope: JobEnvelope & { payload: TPayload }): Promise<void>;
+  }['bivarianceHack'];
   payloadSchema: ZodType<TPayload>;
 }
 

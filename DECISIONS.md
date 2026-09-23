@@ -52,6 +52,30 @@ Only a SHA-256 digest of each refresh token is stored. Refresh tokens are single
 
 Invitation tokens follow the same opaque-token rule: the database stores only a digest, and acceptance atomically verifies the invited email, expiry, and single-use status. Authentication operations that must run before a tenant context exists are exposed through narrowly scoped security-definer functions; application connections still use the restricted runtime role.
 
+## ADR-008: Escalation policy revisions are immutable snapshots
+
+**Status:** Accepted
+
+Activating a policy change inserts a new version and ordered step rows instead of editing an existing chain. PostgreSQL triggers reject updates and deletes of versions and steps. Each incident references the exact policy version selected at creation, so later administrative changes cannot silently change an active incident's routing contract. Policy metadata and the active-version pointer may change; archived policies remain readable and cannot be selected as defaults.
+
+## ADR-009: User incident commands use optimistic concurrency
+
+**Status:** Accepted
+
+Every incident mutation requires a quoted version in `If-Match`. The database update predicate includes the organization, incident, expected version, expected lifecycle state, and expected assignee when the command is assignee-only. A successful command increments the version; a stale or concurrently invalidated command returns `409` with the current incident state. This makes simultaneous acknowledgements deterministic without holding a database lock across an HTTP request.
+
+## ADR-010: Business mutations and outbox events commit atomically
+
+**Status:** Accepted
+
+Incident and policy mutations write their audit record and outbox event inside the same tenant-scoped database transaction. External work must be initiated from committed outbox rows rather than directly from request handlers. Incident event deduplication keys derive from the aggregate, action, and resulting version; other events use their monotonic audit cursor. A rollback therefore publishes nothing, while a committed state always has a durable event for later workers.
+
+## ADR-011: Audit records are append-only database facts
+
+**Status:** Accepted
+
+Audit records use a monotonic bigint cursor and capture organization, optional incident, actor, action, metadata, and timestamp. Runtime roles have only insert/select privileges, and a database trigger rejects updates and deletes even if broader privileges are accidentally granted later. Corrections must be represented by a new compensating audit record, preserving the original history.
+
 ## Pending decisions
 
-Optimistic concurrency, transactional outbox, immutable audit records, and escalation locking will be documented in the milestones that introduce them.
+Escalation locking, Socket.io invalidation, asynchronous summaries, and multi-architecture deployment details will be documented in the milestones that introduce them.

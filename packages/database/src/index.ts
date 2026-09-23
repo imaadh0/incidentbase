@@ -16,6 +16,16 @@ export {
   type TenantTransaction,
 } from './tenant-unit-of-work.js';
 export {
+  WorkerUnitOfWork,
+  type WorkerOrganizationContext,
+  type WorkerTransaction,
+} from './worker-unit-of-work.js';
+export type {
+  EscalationExpectation,
+  EscalationOutcome,
+  ReconciliationCandidate,
+} from './repositories/escalation-repository.js';
+export {
   DefaultPolicyArchiveError,
   EscalationPolicyRepository,
   InvalidPolicyResponderError,

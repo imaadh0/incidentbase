@@ -76,6 +76,16 @@ Incident and policy mutations write their audit record and outbox event inside t
 
 Audit records use a monotonic bigint cursor and capture organization, optional incident, actor, action, metadata, and timestamp. Runtime roles have only insert/select privileges, and a database trigger rejects updates and deletes even if broader privileges are accidentally granted later. Corrections must be represented by a new compensating audit record, preserving the original history.
 
+## ADR-012: Escalation jobs serialize on the incident row and reject stale expectations
+
+**Status:** Accepted
+
+Each delayed escalation job carries the organization, incident, escalation generation, expected step, and expected deadline. Its deterministic queue identifier derives from the same tuple. The worker opens a short transaction, assumes the unprivileged `incidentbase_worker` role, installs transaction-local organization context, and locks the incident row with `FOR UPDATE`. It proceeds only when the locked row still exactly matches the job expectation and is due; duplicates and jobs invalidated by acknowledgement, resolution, reassignment, or a newer generation become harmless stale results.
+
+User commands continue to use optimistic concurrency. The row lock is reserved for background escalation processing, where overlapping workers must make one routing decision at a time. Updating the incident, recording skipped inactive responders, appending the audit fact, and inserting the outbox event happen in the same transaction. Queue publication occurs only after commit, and periodic database reconciliation recreates missing delayed work if publication fails or Redis loses a job.
+
+The worker login owns no tables and has no `BYPASSRLS`. A narrowly scoped security-definer reconciliation function may discover due work across organizations, while every mutation still runs under forced RLS with an explicit organization context. Chain exhaustion leaves the final responder assigned and emits one durable Owner/Admin alert event.
+
 ## Pending decisions
 
-Escalation locking, Socket.io invalidation, asynchronous summaries, and multi-architecture deployment details will be documented in the milestones that introduce them.
+Socket.io invalidation, asynchronous summaries, and multi-architecture deployment details will be documented in the milestones that introduce them.

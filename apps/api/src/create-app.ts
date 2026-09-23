@@ -19,6 +19,7 @@ import {
   createTenantMembershipRouter,
   type TenantPrincipalResolver,
 } from './routes/tenant-memberships.js';
+import { createTenantIncidentRouter } from './routes/tenant-incidents.js';
 
 export interface TenantBoundaryOptions {
   resolvePrincipal: TenantPrincipalResolver;
@@ -76,6 +77,7 @@ export function createApp(options: CreateAppOptions): Express {
   }
   if (options.tenantBoundary !== undefined) {
     app.use(createTenantMembershipRouter(options.tenantBoundary));
+    app.use(createTenantIncidentRouter(options.tenantBoundary));
   }
   app.use(notFoundHandler);
   app.use(createErrorHandler(options.logger));

@@ -14,6 +14,7 @@ import {
 import { createLogger, createServiceMetrics } from '@incidentbase/observability';
 
 import { createApp } from '../src/create-app.js';
+import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.API_TEST_DATABASE_URL;
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
@@ -73,8 +74,7 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
   });
 
   beforeAll(async () => {
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
+    await resetTestDatabase(database);
     await database.user.createMany({
       data: [
         { id: ids.ownerA, email: 'api-owner-a@example.test', displayName: 'API Owner A' },
@@ -127,8 +127,6 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
   });
 
   afterAll(async () => {
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
     await database.$disconnect();
   });
 

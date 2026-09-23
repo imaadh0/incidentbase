@@ -18,6 +18,7 @@ import { createLogger, createServiceMetrics } from '@incidentbase/observability'
 import { AuthenticationService } from '../src/auth/authentication-service.js';
 import { authenticateRequest } from '../src/auth/request-authentication.js';
 import { createApp } from '../src/create-app.js';
+import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.API_TEST_DATABASE_URL;
 const runtimeTestDatabaseUrl = process.env.API_TEST_RUNTIME_DATABASE_URL;
@@ -96,15 +97,10 @@ describeWithDatabase.sequential('authentication and membership API', () => {
   let registeredUserId = '';
 
   beforeAll(async () => {
-    await database.refreshSession.deleteMany();
-    await database.organizationInvitation.deleteMany();
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
+    await resetTestDatabase(database);
   });
 
   afterAll(async () => {
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
     await runtimeDatabase.$disconnect();
     await database.$disconnect();
   });

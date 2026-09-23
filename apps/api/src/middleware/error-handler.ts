@@ -16,6 +16,7 @@ export function createErrorHandler(baseLogger: Logger): ErrorRequestHandler {
       response.status(error.statusCode).json({
         error: {
           code: error.code,
+          ...(error.details === undefined ? {} : { details: error.details }),
           message: error.message,
           requestId,
         },

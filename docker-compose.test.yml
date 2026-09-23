@@ -5,3 +5,9 @@ services:
     networks:
       - backend
       - edge
+  redis:
+    ports:
+      - '6379:6379'
+    networks:
+      - backend
+      - edge

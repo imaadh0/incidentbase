@@ -101,6 +101,7 @@ services:
     environment:
       DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-postgresql://incidentbase:local-development-password-change-me@postgres:5432/incidentbase}
       DATABASE_URL: ${DATABASE_URL:-postgresql://incidentbase_app:local-runtime-password-change-me@postgres:5432/incidentbase}
+      WORKER_DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql://incidentbase_worker_app:local-worker-password-change-me@postgres:5432/incidentbase}
     networks:
       - backend
 
@@ -114,6 +115,8 @@ services:
     image: ${WORKER_IMAGE:-incidentbase-worker:local}
     restart: unless-stopped
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       otel-collector:
@@ -121,8 +124,11 @@ services:
     environment:
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql://incidentbase_worker_app:local-worker-password-change-me@postgres:5432/incidentbase}
       REDIS_URL: redis://redis:6379
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-10}
+      ESCALATION_RECONCILIATION_INTERVAL_MS: ${ESCALATION_RECONCILIATION_INTERVAL_MS:-30000}
+      ESCALATION_SCHEDULE_HORIZON_SECONDS: ${ESCALATION_SCHEDULE_HORIZON_SECONDS:-86400}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     networks:

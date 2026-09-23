@@ -74,6 +74,7 @@ COPY --chown=node:node --from=service-production-dependencies /app/packages ./pa
 COPY --chown=node:node --from=builder /app/apps/worker/dist ./apps/worker/dist
 COPY --chown=node:node --from=builder /app/packages/config/dist ./packages/config/dist
 COPY --chown=node:node --from=builder /app/packages/contracts/dist ./packages/contracts/dist
+COPY --chown=node:node --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --chown=node:node --from=builder /app/packages/observability/dist ./packages/observability/dist
 COPY --chown=node:node apps/worker/package.json ./apps/worker/package.json
 CMD ["node", "--enable-source-maps", "apps/worker/dist/index.js"]

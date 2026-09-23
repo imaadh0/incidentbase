@@ -282,7 +282,10 @@ describeWithDatabase.sequential('policy and incident lifecycle repository', () =
     const results = await Promise.allSettled([acknowledge(), acknowledge()]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     const rejection = results.find((result) => result.status === 'rejected');
-    expect(rejection).toMatchObject({ reason: expect.any(IncidentConflictError) });
+    expect(rejection?.status).toBe('rejected');
+    if (rejection?.status === 'rejected') {
+      expect(rejection.reason).toBeInstanceOf(IncidentConflictError);
+    }
   });
 
   it('records administrator overrides and rejects stale versions', async () => {

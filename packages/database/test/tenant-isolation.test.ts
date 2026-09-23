@@ -9,6 +9,7 @@ import {
   TenantAccessDeniedError,
   TenantUnitOfWork,
 } from '../src/index.js';
+import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.DATABASE_TEST_URL;
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
@@ -37,10 +38,7 @@ describeWithDatabase.sequential('tenant database boundary', () => {
   };
 
   beforeAll(async () => {
-    await database.refreshSession.deleteMany();
-    await database.organizationInvitation.deleteMany();
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
+    await resetTestDatabase(database);
 
     await database.user.createMany({
       data: [
@@ -120,8 +118,6 @@ describeWithDatabase.sequential('tenant database boundary', () => {
   });
 
   afterAll(async () => {
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
     await database.$disconnect();
   });
 

@@ -3,6 +3,8 @@ import { InvitationRepository } from './repositories/invitation-repository.js';
 import { MembershipRepository } from './repositories/membership-repository.js';
 import { OrganizationRepository } from './repositories/organization-repository.js';
 import { RefreshSessionRepository } from './repositories/refresh-session-repository.js';
+import { EscalationPolicyRepository } from './repositories/escalation-policy-repository.js';
+import { IncidentRepository } from './repositories/incident-repository.js';
 import type { DatabaseClient } from './client.js';
 
 export interface TenantContext {
@@ -12,8 +14,10 @@ export interface TenantContext {
 
 export interface TenantTransaction {
   invitations: InvitationRepository;
+  incidents: IncidentRepository;
   memberships: MembershipRepository;
   organizations: OrganizationRepository;
+  policies: EscalationPolicyRepository;
   refreshSessions: RefreshSessionRepository;
   actorMembership: OrganizationMembership;
   transaction: Prisma.TransactionClient;
@@ -57,8 +61,10 @@ export class TenantUnitOfWork {
       return operation({
         actorMembership: membership,
         invitations: new InvitationRepository(transaction),
+        incidents: new IncidentRepository(transaction, context.organizationId),
         memberships: new MembershipRepository(transaction),
         organizations: new OrganizationRepository(transaction),
+        policies: new EscalationPolicyRepository(transaction, context.organizationId),
         refreshSessions: new RefreshSessionRepository(transaction),
         transaction,
       });

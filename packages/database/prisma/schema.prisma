@@ -26,6 +26,40 @@ enum MembershipStatus {
   @@map("membership_status")
 }
 
+enum IncidentSeverity {
+  SEV1
+  SEV2
+  SEV3
+  SEV4
+
+  @@map("incident_severity")
+}
+
+enum IncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  INVESTIGATING
+  RESOLVED
+
+  @@map("incident_status")
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+
+  @@map("audit_actor_type")
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
 model User {
   id                 String                   @id @default(uuid()) @db.Uuid
   email              String                   @unique
@@ -42,14 +76,23 @@ model User {
 }
 
 model Organization {
-  id              String                   @id @default(uuid()) @db.Uuid
-  slug            String                   @unique
-  name            String
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  memberships     OrganizationMembership[]
-  invitations     OrganizationInvitation[]
-  refreshSessions RefreshSession[]
+  id                        String                   @id @default(uuid()) @db.Uuid
+  slug                      String                   @unique
+  name                      String
+  defaultEscalationPolicyId String?                  @map("default_escalation_policy_id") @db.Uuid
+  nextIncidentNumber        Int                      @default(1) @map("next_incident_number")
+  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships               OrganizationMembership[]
+  invitations               OrganizationInvitation[]
+  refreshSessions           RefreshSession[]
+  escalationPolicies        EscalationPolicy[]       @relation("OrganizationPolicies")
+  defaultEscalationPolicy   EscalationPolicy?        @relation("DefaultEscalationPolicy", fields: [id, defaultEscalationPolicyId], references: [organizationId, id], onDelete: Restrict)
+  policyVersions            EscalationPolicyVersion[]
+  policySteps               EscalationPolicyStep[]
+  incidents                 Incident[]
+  auditLogs                 AuditLog[]
+  outboxEvents              OutboxEvent[]
 
   @@map("organizations")
 }
@@ -66,6 +109,10 @@ model OrganizationMembership {
   user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   invitations     OrganizationInvitation[] @relation("InvitationCreatorMembership")
   refreshSessions RefreshSession[]
+  policySteps     EscalationPolicyStep[]
+  reportedIncidents Incident[]             @relation("IncidentReporter")
+  assignedIncidents Incident[]             @relation("IncidentAssignee")
+  auditLogs       AuditLog[]
 
   @@id([organizationId, id])
   @@unique([organizationId, userId])
@@ -112,4 +159,130 @@ model RefreshSession {
   @@index([userId])
   @@index([userId, familyId])
   @@map("refresh_sessions")
+}
+
+model EscalationPolicy {
+  id              String                    @default(uuid()) @db.Uuid
+  organizationId  String                    @map("organization_id") @db.Uuid
+  name            String
+  description     String?
+  activeVersionId String?                   @map("active_version_id") @db.Uuid
+  nextRevision    Int                       @default(1) @map("next_revision")
+  archivedAt      DateTime?                 @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization    Organization              @relation("OrganizationPolicies", fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultFor      Organization[]            @relation("DefaultEscalationPolicy")
+  versions        EscalationPolicyVersion[] @relation("PolicyVersions")
+  activeVersion   EscalationPolicyVersion?  @relation("ActivePolicyVersion", fields: [organizationId, id, activeVersionId], references: [organizationId, policyId, id], onDelete: Restrict)
+
+  @@id([organizationId, id])
+  @@map("escalation_policies")
+}
+
+model EscalationPolicyVersion {
+  id             String                 @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  policyId       String                 @map("policy_id") @db.Uuid
+  revision       Int
+  activatedAt    DateTime               @default(now()) @map("activated_at") @db.Timestamptz(3)
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policy         EscalationPolicy       @relation("PolicyVersions", fields: [organizationId, policyId], references: [organizationId, id], onDelete: Restrict)
+  activeFor      EscalationPolicy[]     @relation("ActivePolicyVersion")
+  steps          EscalationPolicyStep[]
+  incidents      Incident[]
+
+  @@id([organizationId, id])
+  @@unique([organizationId, policyId, revision])
+  @@unique([organizationId, policyId, id])
+  @@map("escalation_policy_versions")
+}
+
+model EscalationPolicyStep {
+  id                    String                    @default(uuid()) @db.Uuid
+  organizationId        String                    @map("organization_id") @db.Uuid
+  policyVersionId       String                    @map("policy_version_id") @db.Uuid
+  position              Int
+  responderMembershipId String                    @map("responder_membership_id") @db.Uuid
+  waitSeconds           Int                       @map("wait_seconds")
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policyVersion         EscalationPolicyVersion   @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
+  responderMembership   OrganizationMembership    @relation(fields: [organizationId, responderMembershipId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([organizationId, id])
+  @@unique([organizationId, policyVersionId, position])
+  @@map("escalation_policy_steps")
+}
+
+model Incident {
+  id                       String                     @default(uuid()) @db.Uuid
+  organizationId           String                     @map("organization_id") @db.Uuid
+  referenceNumber          Int                        @map("reference_number")
+  title                    String
+  description              String
+  severity                 IncidentSeverity
+  status                   IncidentStatus             @default(OPEN)
+  reporterMembershipId     String                     @map("reporter_membership_id") @db.Uuid
+  assignedMembershipId     String                     @map("assigned_membership_id") @db.Uuid
+  policyVersionId          String                     @map("policy_version_id") @db.Uuid
+  currentEscalationStep    Int                        @default(0) @map("current_escalation_step")
+  escalationGeneration     Int                        @default(0) @map("escalation_generation")
+  nextEscalationAt         DateTime?                  @map("next_escalation_at") @db.Timestamptz(3)
+  firstEscalatedAt         DateTime?                  @map("first_escalated_at") @db.Timestamptz(3)
+  escalationExhaustedAt    DateTime?                  @map("escalation_exhausted_at") @db.Timestamptz(3)
+  acknowledgedAt           DateTime?                  @map("acknowledged_at") @db.Timestamptz(3)
+  investigatingAt          DateTime?                  @map("investigating_at") @db.Timestamptz(3)
+  resolvedAt               DateTime?                  @map("resolved_at") @db.Timestamptz(3)
+  version                  Int                        @default(1)
+  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reporterMembership       OrganizationMembership     @relation("IncidentReporter", fields: [organizationId, reporterMembershipId], references: [organizationId, id], onDelete: Restrict)
+  assignedMembership       OrganizationMembership     @relation("IncidentAssignee", fields: [organizationId, assignedMembershipId], references: [organizationId, id], onDelete: Restrict)
+  policyVersion            EscalationPolicyVersion    @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
+  auditLogs                AuditLog[]
+
+  @@id([organizationId, id])
+  @@unique([organizationId, referenceNumber])
+  @@index([organizationId, status, createdAt])
+  @@map("incidents")
+}
+
+model AuditLog {
+  id                BigInt                  @id @default(autoincrement())
+  organizationId    String                  @map("organization_id") @db.Uuid
+  incidentId        String?                 @map("incident_id") @db.Uuid
+  actorMembershipId String?                 @map("actor_membership_id") @db.Uuid
+  actorType         AuditActorType          @map("actor_type")
+  action            String
+  metadata          Json                    @default("{}")
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  incident          Incident?               @relation(fields: [organizationId, incidentId], references: [organizationId, id], onDelete: Restrict)
+  actorMembership   OrganizationMembership? @relation(fields: [organizationId, actorMembershipId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, incidentId, id])
+  @@map("audit_logs")
+}
+
+model OutboxEvent {
+  id               String         @default(uuid()) @db.Uuid
+  organizationId   String         @map("organization_id") @db.Uuid
+  aggregateType    String         @map("aggregate_type")
+  aggregateId      String         @map("aggregate_id") @db.Uuid
+  eventType        String         @map("event_type")
+  payload          Json
+  deduplicationKey String         @map("deduplication_key")
+  status           OutboxStatus   @default(PENDING)
+  attempts         Int            @default(0)
+  availableAt      DateTime       @default(now()) @map("available_at") @db.Timestamptz(3)
+  processedAt      DateTime?      @map("processed_at") @db.Timestamptz(3)
+  lastError        String?        @map("last_error")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, id])
+  @@unique([organizationId, deduplicationKey])
+  @@index([status, availableAt])
+  @@map("outbox_events")
 }

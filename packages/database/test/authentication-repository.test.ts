@@ -8,6 +8,7 @@ import {
   MembershipStatus,
   OrganizationRole,
 } from '../src/index.js';
+import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.DATABASE_TEST_URL;
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
@@ -30,10 +31,7 @@ describeWithDatabase.sequential('authentication database boundary', () => {
   };
 
   beforeAll(async () => {
-    await database.refreshSession.deleteMany();
-    await database.organizationInvitation.deleteMany();
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
+    await resetTestDatabase(database);
 
     await authentication.registerOwner({
       displayName: 'Auth Owner',
@@ -48,8 +46,6 @@ describeWithDatabase.sequential('authentication database boundary', () => {
   });
 
   afterAll(async () => {
-    await database.organization.deleteMany();
-    await database.user.deleteMany();
     await database.$disconnect();
   });
 

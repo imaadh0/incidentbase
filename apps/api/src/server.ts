@@ -14,6 +14,7 @@ import { createApp } from './create-app.js';
 import { registerShutdownHandlers } from './shutdown.js';
 import { AuthenticationService } from './auth/authentication-service.js';
 import { authenticateRequest } from './auth/request-authentication.js';
+import { createRealtimeGateway } from './realtime/realtime-gateway.js';
 
 interface StartApiServerOptions {
   environment: ApiEnvironment;
@@ -51,14 +52,25 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     },
   });
   const server = createServer(app);
+  const realtime = await createRealtimeGateway({
+    accessTokens,
+    httpServer: server,
+    logger: options.logger,
+    redisUrl: options.environment.REDIS_URL,
+    tenantUnitOfWork: new TenantUnitOfWork(database),
+    webOrigin: options.environment.WEB_ORIGIN,
+  });
 
   registerShutdownHandlers({
     logger: options.logger,
     timeoutMs: options.environment.SHUTDOWN_TIMEOUT_MS,
     close: async () => {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => (error === undefined ? resolve() : reject(error)));
-      });
+      await realtime.close();
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => (error === undefined ? resolve() : reject(error)));
+        });
+      }
       await database.$disconnect();
       await options.telemetry.shutdown();
     },

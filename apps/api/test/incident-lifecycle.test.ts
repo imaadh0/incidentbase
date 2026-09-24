@@ -10,6 +10,7 @@ import {
   MembershipStatus,
   OrganizationRole,
   TenantUnitOfWork,
+  WorkerUnitOfWork,
 } from '@incidentbase/database';
 import { createLogger, createServiceMetrics } from '@incidentbase/observability';
 
@@ -18,13 +19,18 @@ import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.API_TEST_DATABASE_URL;
 const runtimeTestDatabaseUrl = process.env.API_TEST_RUNTIME_DATABASE_URL;
+const workerTestDatabaseUrl = process.env.API_TEST_WORKER_DATABASE_URL;
 if (testDatabaseUrl !== undefined && runtimeTestDatabaseUrl === undefined) {
   throw new Error('API_TEST_RUNTIME_DATABASE_URL is required when API_TEST_DATABASE_URL is set.');
+}
+if (testDatabaseUrl !== undefined && workerTestDatabaseUrl === undefined) {
+  throw new Error('API_TEST_WORKER_DATABASE_URL is required when API_TEST_DATABASE_URL is set.');
 }
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
 const incidentResponseSchema = z.object({
   data: z.object({
     assignedMembershipId: z.uuid(),
+    currentEscalationStep: z.number().int(),
     escalationGeneration: z.number(),
     id: z.uuid(),
     policyVersionId: z.uuid(),
@@ -47,6 +53,8 @@ describeWithDatabase.sequential('policy and incident lifecycle API', () => {
 
   const database = createDatabaseClient({ connectionString: testDatabaseUrl });
   const runtimeDatabase = createDatabaseClient({ connectionString: runtimeTestDatabaseUrl! });
+  const workerDatabase = createDatabaseClient({ connectionString: workerTestDatabaseUrl! });
+  const worker = new WorkerUnitOfWork(workerDatabase);
   const suffix = randomUUID().slice(0, 8);
   const ids = {
     admin: randomUUID(),
@@ -187,6 +195,7 @@ describeWithDatabase.sequential('policy and incident lifecycle API', () => {
   });
 
   afterAll(async () => {
+    await workerDatabase.$disconnect();
     await runtimeDatabase.$disconnect();
     await database.$disconnect();
   });
@@ -242,6 +251,84 @@ describeWithDatabase.sequential('policy and incident lifecycle API', () => {
       .set('authorization', 'Bearer reporter')
       .expect(200)
       .expect('ETag', '"1"');
+  });
+
+  it('completes the create, escalate, acknowledge, investigate, and resolve vertical slice', async () => {
+    const policiesBefore = await request(app)
+      .get(`/organizations/${ids.organizationA}/policies`)
+      .set('authorization', 'Bearer owner-a')
+      .expect(200);
+    const previousDefaultPolicyId = z
+      .object({ data: z.object({ defaultPolicyId: z.uuid() }) })
+      .parse(policiesBefore.body as unknown).data.defaultPolicyId;
+    await request(app)
+      .post(`/organizations/${ids.organizationA}/policies`)
+      .set('authorization', 'Bearer owner-a')
+      .send({
+        makeDefault: true,
+        name: 'Vertical slice policy',
+        steps: [
+          { responderMembershipId: ids.responderMembership1, waitSeconds: 60 },
+          { responderMembershipId: ids.responderMembership2, waitSeconds: 60 },
+        ],
+      })
+      .expect(201);
+    const created = await createIncident('Complete vertical slice');
+    expect(created.assignedMembershipId).toBe(ids.responderMembership1);
+
+    const expectedDeadline = new Date(Date.now() - 1_000);
+    await database.incident.update({
+      where: {
+        organizationId_id: { id: created.id, organizationId: ids.organizationA },
+      },
+      data: { nextEscalationAt: expectedDeadline },
+    });
+    const escalation = await worker.process({
+      expectedDeadline,
+      expectedStep: created.currentEscalationStep,
+      generation: created.escalationGeneration,
+      incidentId: created.id,
+      organizationId: ids.organizationA,
+    });
+    expect(escalation.outcome).toBe('ESCALATED');
+    if (escalation.outcome !== 'ESCALATED') throw new Error('Expected escalation.');
+    expect(escalation.incident.assignedMembershipId).toBe(ids.responderMembership2);
+
+    const acknowledged = await command(
+      created.id,
+      'acknowledge',
+      escalation.incident.version,
+      'responder-2',
+    );
+    const investigating = await command(
+      created.id,
+      'start-investigation',
+      acknowledged.version,
+      'responder-2',
+    );
+    const resolved = await command(created.id, 'resolve', investigating.version, 'responder-2');
+    expect(resolved.status).toBe('RESOLVED');
+
+    const timelineResponse = await request(app)
+      .get(`/organizations/${ids.organizationA}/incidents/${created.id}/timeline`)
+      .set('authorization', 'Bearer reporter')
+      .expect(200);
+    expect(
+      timelineResponseSchema
+        .parse(timelineResponse.body as unknown)
+        .data.map((entry) => entry.action),
+    ).toEqual([
+      'incident.created',
+      'incident.escalated',
+      'incident.acknowledged',
+      'incident.investigation-started',
+      'incident.resolved',
+    ]);
+    await request(app)
+      .put(`/organizations/${ids.organizationA}/default-policy`)
+      .set('authorization', 'Bearer owner-a')
+      .send({ policyId: previousDefaultPolicyId })
+      .expect(200);
   });
 
   it('enforces every role at incident command boundaries', async () => {

@@ -61,7 +61,8 @@ export function createTenantMembershipRouter(options: TenantMembershipRouterOpti
         (tenant) => tenant.memberships.list(),
       );
       response.json({
-        data: memberships.map(({ id, organizationId, role, status, userId }) => ({
+        data: memberships.map(({ displayName, id, organizationId, role, status, userId }) => ({
+          displayName,
           id,
           organizationId,
           role,

@@ -8,7 +8,13 @@ export const refreshCookieName = 'incidentbase_refresh';
 export const csrfCookieName = 'incidentbase_csrf';
 
 export function readCookie(request: Request, name: string): string | undefined {
-  const cookieHeader = request.header('cookie');
+  return readCookieHeader(request.header('cookie'), name);
+}
+
+export function readCookieHeader(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
   if (cookieHeader === undefined) {
     return undefined;
   }

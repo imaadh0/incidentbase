@@ -1,5 +1,14 @@
 import type { OrganizationMembership, Prisma } from '../generated/prisma/client.js';
 
+export interface MembershipDirectoryEntry {
+  displayName: string;
+  id: string;
+  organizationId: string;
+  role: OrganizationMembership['role'];
+  status: OrganizationMembership['status'];
+  userId: string;
+}
+
 export class MembershipRepository {
   public constructor(private readonly transaction: Prisma.TransactionClient) {}
 
@@ -7,8 +16,16 @@ export class MembershipRepository {
     return this.transaction.organizationMembership.findFirst({ where: { id } });
   }
 
-  public list(): Promise<OrganizationMembership[]> {
-    return this.transaction.organizationMembership.findMany({ orderBy: { createdAt: 'asc' } });
+  public list(): Promise<MembershipDirectoryEntry[]> {
+    return this.transaction.$queryRaw<MembershipDirectoryEntry[]>`
+      SELECT membership_id AS id,
+             organization_id AS "organizationId",
+             user_id AS "userId",
+             display_name AS "displayName",
+             role,
+             status
+      FROM app.tenant_member_directory(app.current_organization_id())
+    `;
   }
 
   public update(

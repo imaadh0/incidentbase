@@ -16,6 +16,24 @@ export interface WorkerTransaction {
   transaction: Prisma.TransactionClient;
 }
 
+export interface ClaimedOutboxEvent {
+  aggregateId: string;
+  aggregateType: string;
+  attempts: number;
+  eventId: string;
+  eventType: string;
+  organizationId: string;
+  payload: unknown;
+}
+
+export interface RealtimeIncidentDetails {
+  recipientUserId?: string | undefined;
+  referenceNumber: number;
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED';
+  title: string;
+  version: number;
+}
+
 export class WorkerUnitOfWork {
   public constructor(private readonly client: DatabaseClient) {}
 
@@ -53,5 +71,63 @@ export class WorkerUnitOfWork {
              next_escalation_at AS "expectedDeadline"
       FROM app.worker_reconciliation_candidates(${horizon}, ${limit})
     `;
+  }
+
+  public claimOutboxEvents(limit = 100): Promise<ClaimedOutboxEvent[]> {
+    return this.client.$queryRaw<ClaimedOutboxEvent[]>`
+      SELECT organization_id AS "organizationId",
+             event_id AS "eventId",
+             aggregate_type AS "aggregateType",
+             aggregate_id AS "aggregateId",
+             event_type AS "eventType",
+             payload,
+             attempts
+      FROM app.worker_claim_outbox_events(${limit})
+    `;
+  }
+
+  public async publishOutboxEvent(organizationId: string, eventId: string): Promise<void> {
+    await this.client.$queryRaw`
+      SELECT app.worker_publish_outbox_event(${organizationId}::UUID, ${eventId}::UUID)::text
+    `;
+  }
+
+  public async retryOutboxEvent(
+    organizationId: string,
+    eventId: string,
+    message: string,
+  ): Promise<void> {
+    await this.client.$queryRaw`
+      SELECT app.worker_retry_outbox_event(
+        ${organizationId}::UUID,
+        ${eventId}::UUID,
+        ${message}
+      )::text
+    `;
+  }
+
+  public realtimeIncidentDetails(
+    organizationId: string,
+    incidentId: string,
+    recipientMembershipId?: string,
+  ): Promise<RealtimeIncidentDetails | null> {
+    return this.withOrganization({ organizationId }, async ({ transaction }) => {
+      const incident = await transaction.incident.findFirst({
+        where: { id: incidentId, organizationId },
+        select: { referenceNumber: true, status: true, title: true, version: true },
+      });
+      if (incident === null) return null;
+      const recipient =
+        recipientMembershipId === undefined
+          ? null
+          : await transaction.organizationMembership.findFirst({
+              where: { id: recipientMembershipId, organizationId },
+              select: { userId: true },
+            });
+      return {
+        ...incident,
+        ...(recipient === null ? {} : { recipientUserId: recipient.userId }),
+      };
+    });
   }
 }

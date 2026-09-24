@@ -348,7 +348,9 @@ export class IncidentRepository {
         organizationId: incident.organizationId,
         payload: {
           auditId: audit.id.toString(),
+          assignedMembershipId: incident.assignedMembershipId,
           incidentId: incident.id,
+          ...metadata,
           status: incident.status,
           version: incident.version,
         },

@@ -247,6 +247,25 @@ describeWithDatabase.sequential('worker escalation serialization', () => {
     expect(candidates).toContainEqual(expectation);
   });
 
+  it('claims committed outbox work through the restricted relay boundary', async () => {
+    await createDueIncident('Outbox relay candidate');
+    const [claimed] = await worker.claimOutboxEvents(1);
+    expect(claimed).toMatchObject({ attempts: 1 });
+    if (claimed === undefined) throw new Error('Expected a claimed outbox event.');
+
+    await worker.publishOutboxEvent(claimed.organizationId, claimed.eventId);
+    const stored = await database.outboxEvent.findUniqueOrThrow({
+      where: {
+        organizationId_id: {
+          id: claimed.eventId,
+          organizationId: claimed.organizationId,
+        },
+      },
+    });
+    expect(stored).toMatchObject({ attempts: 1, status: 'PUBLISHED' });
+    expect(stored.processedAt).not.toBeNull();
+  });
+
   async function createDueIncident(title: string) {
     const incident = await tenant.withTenant(
       { organizationId: ids.organization, userId: ids.reporter },

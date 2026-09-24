@@ -17,6 +17,8 @@ export {
 } from './tenant-unit-of-work.js';
 export {
   WorkerUnitOfWork,
+  type ClaimedOutboxEvent,
+  type RealtimeIncidentDetails,
   type WorkerOrganizationContext,
   type WorkerTransaction,
 } from './worker-unit-of-work.js';
@@ -25,6 +27,10 @@ export type {
   EscalationOutcome,
   ReconciliationCandidate,
 } from './repositories/escalation-repository.js';
+export {
+  MembershipRepository,
+  type MembershipDirectoryEntry,
+} from './repositories/membership-repository.js';
 export {
   DefaultPolicyArchiveError,
   EscalationPolicyRepository,

@@ -179,6 +179,7 @@ export class EscalationRepository {
         organizationId: this.organizationId,
         payload: {
           auditId: audit.id.toString(),
+          assignedMembershipId: incident.assignedMembershipId,
           incidentId: incident.id,
           ...metadata,
           status: incident.status,

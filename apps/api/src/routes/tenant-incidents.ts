@@ -32,6 +32,14 @@ import type { TenantPrincipalResolver } from './tenant-memberships.js';
 const organizationParametersSchema = z.object({ organizationId: z.uuid() });
 const policyParametersSchema = z.object({ organizationId: z.uuid(), policyId: z.uuid() });
 const incidentParametersSchema = z.object({ incidentId: z.uuid(), organizationId: z.uuid() });
+const auditQuerySchema = z.object({
+  after: z
+    .string()
+    .regex(/^(0|[1-9][0-9]{0,18})$/u)
+    .refine((value) => BigInt(value) <= 9_223_372_036_854_775_807n)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
 
 interface TenantIncidentRouterOptions {
   resolvePrincipal: TenantPrincipalResolver;
@@ -52,6 +60,29 @@ export function createTenantIncidentRouter(options: TenantIncidentRouterOptions)
       };
     });
     response.json({ data: result });
+  });
+
+  router.get('/organizations/:organizationId/audit-logs', async (request, response) => {
+    const organizationId = parseOrganizationId(request);
+    const query = parseQuery(auditQuerySchema, request.query);
+    const after = query.after === undefined ? 0n : BigInt(query.after);
+    const entries = await withTenant(request, organizationId, options, async (tenant) => {
+      requirePermission(tenant, 'audit:read');
+      return tenant.transaction.auditLog.findMany({
+        where: { organizationId, id: { gt: after } },
+        select: {
+          id: true,
+          incidentId: true,
+          actorMembershipId: true,
+          actorType: true,
+          action: true,
+          createdAt: true,
+        },
+        orderBy: { id: 'asc' },
+        take: query.limit,
+      });
+    });
+    response.json({ data: entries.map((entry) => ({ ...entry, id: entry.id.toString() })) });
   });
 
   router.post('/organizations/:organizationId/policies', async (request, response) => {

@@ -483,6 +483,28 @@ describeWithDatabase.sequential('policy and incident lifecycle API', () => {
     );
   });
 
+  it('restricts the organization audit explorer to active administrators', async () => {
+    const incident = await createIncident('Audit explorer incident');
+    const path = `/organizations/${ids.organizationA}/audit-logs`;
+    const owner = await request(app).get(path).set('authorization', 'Bearer owner-a').expect(200);
+    const entries = z
+      .array(z.object({ id: z.string(), incidentId: z.uuid().nullable() }))
+      .parse((owner.body as { data: unknown }).data);
+    expect(entries.some((entry) => entry.incidentId === incident.id)).toBe(true);
+    await request(app).get(path).set('authorization', 'Bearer admin').expect(200);
+    await request(app).get(path).set('authorization', 'Bearer reporter').expect(403);
+    await request(app).get(path).set('authorization', 'Bearer owner-b').expect(404);
+    await request(app).get(path).set('authorization', 'Bearer suspended').expect(404);
+    const after = entries.at(-1)?.id;
+    if (after !== undefined) {
+      const next = await request(app)
+        .get(`${path}?after=${after}`)
+        .set('authorization', 'Bearer owner-a')
+        .expect(200);
+      expect((next.body as { data: unknown[] }).data).toHaveLength(0);
+    }
+  });
+
   async function createIncident(title: string) {
     const response = await request(app)
       .post(`/organizations/${ids.organizationA}/incidents`)

@@ -69,5 +69,7 @@ describe('parseEnvironment', () => {
 
     expect(result.ESCALATION_RECONCILIATION_INTERVAL_MS).toBe(30_000);
     expect(result.ESCALATION_SCHEDULE_HORIZON_SECONDS).toBe(86_400);
+    expect(result.OUTBOX_RELAY_BATCH_SIZE).toBe(100);
+    expect(result.OUTBOX_RELAY_INTERVAL_MS).toBe(1_000);
   });
 });

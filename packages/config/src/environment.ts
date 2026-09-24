@@ -61,6 +61,8 @@ export const workerEnvironmentSchema = runtimeSchema
       .min(60)
       .max(604_800)
       .default(86_400),
+    OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
+    OUTBOX_RELAY_INTERVAL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(100).default(10),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })

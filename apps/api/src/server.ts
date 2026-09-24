@@ -23,6 +23,9 @@ interface StartApiServerOptions {
 }
 
 export async function startApiServer(options: StartApiServerOptions): Promise<void> {
+  if (!options.environment.NOTIFICATION_ENCRYPTION_KEY) {
+    throw new Error('NOTIFICATION_ENCRYPTION_KEY is required for the API.');
+  }
   const metrics = createServiceMetrics('api');
   const database = createDatabaseClient({ connectionString: options.environment.DATABASE_URL });
   const accessTokens = new AccessTokenService({

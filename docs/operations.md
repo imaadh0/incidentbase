@@ -43,6 +43,12 @@ Create separate repository and API test databases and apply the migration histor
 role in the API test database, and set `API_TEST_RUNTIME_DATABASE_URL` to that restricted login. CI
 performs these steps and will not skip the database isolation suites.
 
+## External notification configuration
+
+Set the same 64-character hexadecimal `NOTIFICATION_ENCRYPTION_KEY` on API and worker. The Compose fallback is for local development only; production deployments must override it with a randomly generated secret. Set `RESEND_API_KEY` and a verified `RESEND_FROM_EMAIL` on the worker to enable email delivery, then enable email in an organization's notification settings. Slack and Discord webhook URLs are entered through the Owner/Admin API, encrypted at rest, and never returned. The worker needs outbound HTTPS access to Resend and approved webhook hosts. Changing the encryption key without re-encrypting existing webhook secrets will disable those channels.
+
+The settings, test, and delivery-status endpoints are under `/api/v1/organizations/:organizationId/notification-settings`, `/notification-settings/test`, and `/notification-deliveries`. Test requests are limited to five per organization per hour. Delivery rows record bounded retries and sanitized provider errors. A webhook may be delivered twice if a worker crashes after provider acceptance but before the database acknowledges success; Resend email uses a stable idempotency key.
+
 ## Web build output
 
 Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing requires symlink privileges. Container builds set the validated value to `standalone` for a minimal production runtime image.

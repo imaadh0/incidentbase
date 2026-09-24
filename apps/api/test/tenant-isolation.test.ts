@@ -34,6 +34,7 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
     ownerA: randomUUID(),
     ownerB: randomUUID(),
     suspended: randomUUID(),
+    responder: randomUUID(),
     membershipA: randomUUID(),
     membershipB: randomUUID(),
   };
@@ -49,6 +50,7 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
     METRICS_TOKEN: 'a-secure-test-token-with-32-characters',
     JWT_SECRET: 'a-secure-test-jwt-secret-with-32-characters',
     COOKIE_SECURE: 'false',
+    NOTIFICATION_ENCRYPTION_KEY: '0123456789abcdef'.repeat(4),
     OTEL_ENABLED: 'false',
   });
 
@@ -56,6 +58,7 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
     ['owner-a-token', { userId: ids.ownerA }],
     ['owner-b-token', { userId: ids.ownerB }],
     ['suspended-token', { userId: ids.suspended }],
+    ['responder-token', { userId: ids.responder }],
   ]);
   const app = createApp({
     environment,
@@ -84,6 +87,7 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
           email: 'api-suspended@example.test',
           displayName: 'API Suspended User',
         },
+        { id: ids.responder, email: 'api-responder@example.test', displayName: 'API Responder' },
       ],
     });
 
@@ -105,6 +109,12 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
             userId: ids.suspended,
             role: OrganizationRole.REPORTER,
             status: MembershipStatus.SUSPENDED,
+          },
+          {
+            organizationId: ids.organizationA,
+            userId: ids.responder,
+            role: OrganizationRole.RESPONDER,
+            status: MembershipStatus.ACTIVE,
           },
         ],
       });
@@ -178,5 +188,58 @@ describeWithDatabase.sequential('API tenant isolation boundary', () => {
       .expect(401);
 
     expect(errorResponseSchema.parse(response.body).error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('redacts webhook secrets and rejects cross-tenant settings access', async () => {
+    const settingsUrl = `/organizations/${ids.organizationA}/notification-settings`;
+    const update = await request(app)
+      .put(settingsUrl)
+      .set('authorization', 'Bearer owner-a-token')
+      .send({
+        slackEnabled: true,
+        slackWebhookUrl: 'https://hooks.slack.com/services/T/B/secret',
+        emailEnabled: true,
+      })
+      .expect(200);
+    expect(update.body).toMatchObject({
+      data: { slackEnabled: true, slackConfigured: true, emailEnabled: true },
+    });
+    expect(JSON.stringify(update.body)).not.toContain('secret');
+    const read = await request(app)
+      .get(settingsUrl)
+      .set('authorization', 'Bearer owner-a-token')
+      .expect(200);
+    expect(JSON.stringify(read.body)).not.toContain('secret');
+    await request(app)
+      .get(`/organizations/${ids.organizationB}/notification-settings`)
+      .set('authorization', 'Bearer owner-a-token')
+      .expect(404);
+    await request(app).get(settingsUrl).set('authorization', 'Bearer suspended-token').expect(404);
+    await request(app).get(settingsUrl).set('authorization', 'Bearer responder-token').expect(403);
+    await request(app)
+      .get(`/organizations/${ids.organizationA}/notification-deliveries`)
+      .set('authorization', 'Bearer responder-token')
+      .expect(403);
+  });
+
+  it('rejects spoofed webhook hosts and rate-limits test delivery requests', async () => {
+    const settingsUrl = `/organizations/${ids.organizationA}/notification-settings`;
+    await request(app)
+      .put(settingsUrl)
+      .set('authorization', 'Bearer owner-a-token')
+      .send({ slackWebhookUrl: 'https://hooks.slack.com.evil.test/services/T/B/token' })
+      .expect(400);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await request(app)
+        .post(`${settingsUrl}/test`)
+        .set('authorization', 'Bearer owner-a-token')
+        .send({})
+        .expect(202);
+    }
+    await request(app)
+      .post(`${settingsUrl}/test`)
+      .set('authorization', 'Bearer owner-a-token')
+      .send({})
+      .expect(429);
   });
 });

@@ -20,6 +20,7 @@ import {
   type TenantPrincipalResolver,
 } from './routes/tenant-memberships.js';
 import { createTenantIncidentRouter } from './routes/tenant-incidents.js';
+import { createTenantNotificationRouter } from './routes/tenant-notifications.js';
 
 export interface TenantBoundaryOptions {
   resolvePrincipal: TenantPrincipalResolver;
@@ -78,6 +79,14 @@ export function createApp(options: CreateAppOptions): Express {
   if (options.tenantBoundary !== undefined) {
     app.use(createTenantMembershipRouter(options.tenantBoundary));
     app.use(createTenantIncidentRouter(options.tenantBoundary));
+    if (options.environment.NOTIFICATION_ENCRYPTION_KEY) {
+      app.use(
+        createTenantNotificationRouter({
+          ...options.tenantBoundary,
+          encryptionKey: options.environment.NOTIFICATION_ENCRYPTION_KEY,
+        }),
+      );
+    }
   }
   app.use(notFoundHandler);
   app.use(createErrorHandler(options.logger));

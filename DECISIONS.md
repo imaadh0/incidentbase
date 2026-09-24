@@ -96,6 +96,14 @@ Socket.io authenticates the access cookie during the handshake. Organization roo
 
 Realtime payloads contain identifiers, the committed resulting version, audit cursor, event type, and minimal display text. They are never authoritative incident state. The browser refetches active REST resources after an event and after every connection or reconnection, while timeline synchronization resumes after its last audit cursor. This makes missed Redis Pub/Sub messages and reconnect gaps converge to PostgreSQL state without polling.
 
+## ADR-014: External notifications are durable tenant-scoped deliveries
+
+**Status:** Accepted
+
+An incident outbox event is staged into immutable email or webhook delivery rows by the worker before the event is marked published. Each row has an organization-scoped composite foreign key to its source event and a deterministic unique delivery key, so outbox replay cannot enqueue duplicate deliveries. Provider calls occur only in a separate worker loop after commit; provider failure cannot roll back an incident transition. PostgreSQL claims delivery rows with `FOR UPDATE SKIP LOCKED`, leases in-progress work, and applies bounded exponential retries. Delivery outcomes retain sanitized errors and provider identifiers for Owner/Admin inspection. Resend receives the stable delivery key as its idempotency key. Slack and Discord are at-least-once across a crash after provider acceptance but before completion is recorded; neither provider offers a universal durable idempotency guarantee for incoming webhooks.
+
+Notification settings and delivery rows have forced tenant RLS. The runtime and worker roles own no tables and have no `BYPASSRLS`; narrowly scoped security-definer functions only claim/finish global worker work and resolve active recipient email addresses within explicit worker tenant context. Only Owner/Admin API endpoints may configure settings, request up to five test deliveries per organization per hour, or inspect delivery outcomes. Webhook URLs are limited to provider HTTPS hosts and paths, encrypted with AES-256-GCM using organization/channel authenticated data, and never returned by API or written into delivery rows. The deployment key must be held consistently by API and worker and rotated with a deliberate re-encryption procedure; changing it alone makes stored webhooks unreadable. Disabled channels produce no new deliveries. The worker needs a separate outbound Docker network; database and Redis remain on the internal backend network.
+
 ## Pending decisions
 
 Asynchronous summaries and multi-architecture deployment details will be documented in the milestones that introduce them.

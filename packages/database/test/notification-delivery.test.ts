@@ -198,8 +198,12 @@ describeWithDatabase.sequential('durable notification staging and retry boundary
       data: { status: 'PROCESSING', attempts: 8, availableAt: new Date(Date.now() - 1_000) },
     });
     expect(await worker.claimNotificationDeliveries(10)).toEqual([]);
-    expect((await database.notificationDelivery.findFirstOrThrow({
-      where: { organizationId: ids.organization, id: delivery.id },
-    })).status).toBe('FAILED');
+    expect(
+      (
+        await database.notificationDelivery.findFirstOrThrow({
+          where: { organizationId: ids.organization, id: delivery.id },
+        })
+      ).status,
+    ).toBe('FAILED');
   });
 });

@@ -12,6 +12,7 @@ import { ESCALATION_JOB_NAME, EscalationScheduler } from './escalation-scheduler
 import { JOB_QUEUE_NAME } from './queue.js';
 import { OutboxRelay } from './outbox-relay.js';
 import { NotificationDeliveryProcessor } from './notification-delivery.js';
+import { IncidentSummaryProcessor } from './incident-summary.js';
 import { registerShutdownHandlers } from './shutdown.js';
 
 export { JOB_QUEUE_NAME } from './queue.js';
@@ -58,6 +59,11 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
     encryptionKey: options.environment.NOTIFICATION_ENCRYPTION_KEY,
     resendApiKey: options.environment.RESEND_API_KEY,
     resendFromEmail: options.environment.RESEND_FROM_EMAIL,
+  });
+  const summaryProcessor = new IncidentSummaryProcessor(unitOfWork, {
+    apiKey: options.environment.GROQ_API_KEY,
+    model: options.environment.GROQ_MODEL,
+    timeoutMs: options.environment.GROQ_TIMEOUT_MS,
   });
   const handlers = options.handlers ?? {
     [ESCALATION_JOB_NAME]: createEscalationJobHandler(unitOfWork, scheduler),
@@ -130,6 +136,26 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
   );
   deliveryTimer.unref();
 
+  let summariesRunning = false;
+  const processSummaries = async (): Promise<void> => {
+    if (summariesRunning) return;
+    summariesRunning = true;
+    try {
+      const result = await summaryProcessor.runOnce();
+      if (result.completed || result.failed)
+        options.logger.info(result, 'Incident summary batch completed');
+    } catch (error: unknown) {
+      options.logger.error({ err: error }, 'Incident summary batch failed');
+    } finally {
+      summariesRunning = false;
+    }
+  };
+  const summaryTimer = setInterval(
+    () => void processSummaries(),
+    options.environment.SUMMARY_INTERVAL_MS,
+  );
+  summaryTimer.unref();
+
   registerShutdownHandlers({
     logger: options.logger,
     timeoutMs: options.environment.SHUTDOWN_TIMEOUT_MS,
@@ -137,6 +163,7 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
       clearInterval(reconciliationTimer);
       clearInterval(outboxTimer);
       clearInterval(deliveryTimer);
+      clearInterval(summaryTimer);
       await worker.close();
       await queue.close();
       await database.$disconnect();
@@ -149,6 +176,7 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
   await reconcile();
   await relayOutbox();
   await processDeliveries();
+  await processSummaries();
   options.logger.info(
     { concurrency: options.environment.WORKER_CONCURRENCY, queue: JOB_QUEUE_NAME },
     'Worker is ready',

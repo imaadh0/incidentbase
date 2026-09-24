@@ -80,6 +80,13 @@ export const workerEnvironmentSchema = runtimeSchema
       (value) => (value === '' ? undefined : value),
       z.email().optional(),
     ),
+    GROQ_API_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
+    GROQ_MODEL: z.string().min(1).default('llama-3.3-70b-versatile'),
+    GROQ_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
+    SUMMARY_INTERVAL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(100).default(10),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })

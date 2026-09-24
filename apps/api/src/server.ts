@@ -31,10 +31,12 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
   const metrics = createServiceMetrics('api');
   const database = createDatabaseClient({ connectionString: options.environment.DATABASE_URL });
   const rateLimitRedis = new Redis(options.environment.REDIS_URL, {
+    lazyConnect: true,
     enableOfflineQueue: false,
     maxRetriesPerRequest: 1,
   });
   rateLimitRedis.on('error', () => options.logger.warn('Rate-limit Redis connection error'));
+  await rateLimitRedis.connect();
   await rateLimitRedis.ping();
   const accessTokens = new AccessTokenService({
     audience: options.environment.AUTH_AUDIENCE,

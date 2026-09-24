@@ -69,6 +69,7 @@ services:
       REDIS_URL: redis://redis:6379
       METRICS_TOKEN: ${METRICS_TOKEN:-local-development-metrics-token-change-me}
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-me-now}
+      NOTIFICATION_ENCRYPTION_KEY: ${NOTIFICATION_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
@@ -131,9 +132,14 @@ services:
       ESCALATION_SCHEDULE_HORIZON_SECONDS: ${ESCALATION_SCHEDULE_HORIZON_SECONDS:-86400}
       OUTBOX_RELAY_BATCH_SIZE: ${OUTBOX_RELAY_BATCH_SIZE:-100}
       OUTBOX_RELAY_INTERVAL_MS: ${OUTBOX_RELAY_INTERVAL_MS:-1000}
+      NOTIFICATION_ENCRYPTION_KEY: ${NOTIFICATION_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      NOTIFICATION_DELIVERY_INTERVAL_MS: ${NOTIFICATION_DELIVERY_INTERVAL_MS:-1000}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     networks:
+      - notification_egress
       - backend
 
   postgres:
@@ -178,6 +184,7 @@ services:
 
 networks:
   edge:
+  notification_egress:
   backend:
     internal: true
 

@@ -12,7 +12,8 @@ interface RedisPublisher {
 type OutboxSource = Pick<
   WorkerUnitOfWork,
   'claimOutboxEvents' | 'publishOutboxEvent' | 'realtimeIncidentDetails' | 'retryOutboxEvent'
->;
+> &
+  Partial<Pick<WorkerUnitOfWork, 'stageIncidentNotifications'>>;
 
 export interface OutboxRelayResult {
   failed: number;
@@ -33,6 +34,7 @@ export class OutboxRelay {
 
     for (const event of events) {
       try {
+        await this.unitOfWork.stageIncidentNotifications?.(event);
         const realtimeEvent = await this.toRealtimeEvent(event);
         if (realtimeEvent !== null) {
           await this.publisher.publish(REALTIME_REDIS_CHANNEL, JSON.stringify(realtimeEvent));

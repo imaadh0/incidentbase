@@ -41,6 +41,10 @@ export const apiEnvironmentSchema = runtimeSchema
       .enum(['true', 'false'])
       .default('true')
       .transform((value) => value === 'true'),
+    NOTIFICATION_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[a-f\d]{64}$/iu)
+      .optional(),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   })
   .refine(telemetryRequirement.check, telemetryRequirement);
@@ -63,6 +67,19 @@ export const workerEnvironmentSchema = runtimeSchema
       .default(86_400),
     OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(100),
     OUTBOX_RELAY_INTERVAL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
+    NOTIFICATION_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[a-f\d]{64}$/iu)
+      .optional(),
+    NOTIFICATION_DELIVERY_INTERVAL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
+    RESEND_API_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
+    RESEND_FROM_EMAIL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.email().optional(),
+    ),
     WORKER_CONCURRENCY: z.coerce.number().int().positive().max(100).default(10),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
   })

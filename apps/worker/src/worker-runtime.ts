@@ -11,6 +11,7 @@ import { createEscalationJobHandler } from './escalation-handler.js';
 import { ESCALATION_JOB_NAME, EscalationScheduler } from './escalation-scheduler.js';
 import { JOB_QUEUE_NAME } from './queue.js';
 import { OutboxRelay } from './outbox-relay.js';
+import { NotificationDeliveryProcessor } from './notification-delivery.js';
 import { registerShutdownHandlers } from './shutdown.js';
 
 export { JOB_QUEUE_NAME } from './queue.js';
@@ -23,6 +24,9 @@ interface StartWorkerOptions {
 }
 
 export async function startWorker(options: StartWorkerOptions): Promise<void> {
+  if (!options.environment.NOTIFICATION_ENCRYPTION_KEY) {
+    throw new Error('NOTIFICATION_ENCRYPTION_KEY is required for the notification worker.');
+  }
   const connection = new Redis(options.environment.REDIS_URL, {
     enableReadyCheck: true,
     lazyConnect: true,
@@ -50,6 +54,11 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
     connection,
     options.environment.OUTBOX_RELAY_BATCH_SIZE,
   );
+  const notificationProcessor = new NotificationDeliveryProcessor(unitOfWork, {
+    encryptionKey: options.environment.NOTIFICATION_ENCRYPTION_KEY,
+    resendApiKey: options.environment.RESEND_API_KEY,
+    resendFromEmail: options.environment.RESEND_FROM_EMAIL,
+  });
   const handlers = options.handlers ?? {
     [ESCALATION_JOB_NAME]: createEscalationJobHandler(unitOfWork, scheduler),
   };
@@ -101,12 +110,33 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
   );
   outboxTimer.unref();
 
+  let deliveriesRunning = false;
+  const processDeliveries = async (): Promise<void> => {
+    if (deliveriesRunning) return;
+    deliveriesRunning = true;
+    try {
+      const result = await notificationProcessor.runOnce();
+      if (result.sent || result.failed)
+        options.logger.info(result, 'Notification delivery batch completed');
+    } catch (error: unknown) {
+      options.logger.error({ err: error }, 'Notification delivery batch failed');
+    } finally {
+      deliveriesRunning = false;
+    }
+  };
+  const deliveryTimer = setInterval(
+    () => void processDeliveries(),
+    options.environment.NOTIFICATION_DELIVERY_INTERVAL_MS,
+  );
+  deliveryTimer.unref();
+
   registerShutdownHandlers({
     logger: options.logger,
     timeoutMs: options.environment.SHUTDOWN_TIMEOUT_MS,
     close: async () => {
       clearInterval(reconciliationTimer);
       clearInterval(outboxTimer);
+      clearInterval(deliveryTimer);
       await worker.close();
       await queue.close();
       await database.$disconnect();
@@ -118,6 +148,7 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
   await worker.waitUntilReady();
   await reconcile();
   await relayOutbox();
+  await processDeliveries();
   options.logger.info(
     { concurrency: options.environment.WORKER_CONCURRENCY, queue: JOB_QUEUE_NAME },
     'Worker is ready',

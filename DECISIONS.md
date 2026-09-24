@@ -86,6 +86,16 @@ User commands continue to use optimistic concurrency. The row lock is reserved f
 
 The worker login owns no tables and has no `BYPASSRLS`. A narrowly scoped security-definer reconciliation function may discover due work across organizations, while every mutation still runs under forced RLS with an explicit organization context. Chain exhaustion leaves the final responder assigned and emits one durable Owner/Admin alert event.
 
+## ADR-013: Socket events are tenant-checked invalidation hints
+
+**Status:** Accepted
+
+The transactional outbox is the only source of realtime incident events. A restricted worker claims committed outbox rows with `FOR UPDATE SKIP LOCKED`, publishes a versioned minimal event through Redis, and marks the row published only after Redis accepts it. Failed publication returns the row to a bounded retry schedule. Publication is at least once, so event IDs are stable and clients suppress duplicates.
+
+Socket.io authenticates the access cookie during the handshake. Organization room joins run through the same tenant unit of work as REST requests, and active membership is revalidated before every broadcast so a suspended member cannot continue receiving events through an existing connection. Organization rooms receive incident invalidations; only the selected recipient's user room receives an in-app toast.
+
+Realtime payloads contain identifiers, the committed resulting version, audit cursor, event type, and minimal display text. They are never authoritative incident state. The browser refetches active REST resources after an event and after every connection or reconnection, while timeline synchronization resumes after its last audit cursor. This makes missed Redis Pub/Sub messages and reconnect gaps converge to PostgreSQL state without polling.
+
 ## Pending decisions
 
-Socket.io invalidation, asynchronous summaries, and multi-architecture deployment details will be documented in the milestones that introduce them.
+Asynchronous summaries and multi-architecture deployment details will be documented in the milestones that introduce them.

@@ -309,6 +309,21 @@ describeWithDatabase.sequential('policy and incident lifecycle API', () => {
     const resolved = await command(created.id, 'resolve', investigating.version, 'responder-2');
     expect(resolved.status).toBe('RESOLVED');
 
+    const summaryPath = `/organizations/${ids.organizationA}/incidents/${created.id}/summaries`;
+    const pendingSummary = await request(app)
+      .get(summaryPath)
+      .set('authorization', 'Bearer reporter')
+      .expect(200);
+    expect(pendingSummary.body).toMatchObject({
+      data: [{ lifecycleGeneration: 0, status: 'PENDING', attempts: 0 }],
+    });
+    expect(JSON.stringify(pendingSummary.body)).not.toContain('inputDescription');
+    await request(app)
+      .get(`/organizations/${ids.organizationB}/incidents/${created.id}/summaries`)
+      .set('authorization', 'Bearer owner-b')
+      .expect(404);
+    await request(app).get(summaryPath).set('authorization', 'Bearer suspended').expect(404);
+
     const timelineResponse = await request(app)
       .get(`/organizations/${ids.organizationA}/incidents/${created.id}/timeline`)
       .set('authorization', 'Bearer reporter')

@@ -283,6 +283,26 @@ export function createTenantIncidentRouter(options: TenantIncidentRouterOptions)
     },
   );
 
+  router.get(
+    '/organizations/:organizationId/incidents/:incidentId/summaries',
+    async (request, response) => {
+      const parameters = parseParameters(incidentParametersSchema, request.params);
+      const summaries = await withTenant(
+        request,
+        parameters.organizationId,
+        options,
+        async (tenant) => {
+          requirePermission(tenant, 'incidents:read');
+          if ((await tenant.incidents.findById(parameters.incidentId)) === null) {
+            throw unavailableResourceError();
+          }
+          return tenant.incidents.summaries(parameters.incidentId);
+        },
+      );
+      response.json({ data: summaries });
+    },
+  );
+
   return router;
 }
 

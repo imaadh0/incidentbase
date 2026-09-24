@@ -49,6 +49,10 @@ Set the same 64-character hexadecimal `NOTIFICATION_ENCRYPTION_KEY` on API and w
 
 The settings, test, and delivery-status endpoints are under `/api/v1/organizations/:organizationId/notification-settings`, `/notification-settings/test`, and `/notification-deliveries`. Test requests are limited to five per organization per hour. Delivery rows record bounded retries and sanitized provider errors. A webhook may be delivered twice if a worker crashes after provider acceptance but before the database acknowledges success; Resend email uses a stable idempotency key.
 
+## Incident AI summaries
+
+Set `GROQ_API_KEY` on the worker to generate summaries after incident resolution. `GROQ_MODEL` defaults to `llama-3.3-70b-versatile`; `GROQ_TIMEOUT_MS` and `SUMMARY_INTERVAL_MS` control request timeout and worker polling. The API returns summary history at `GET /api/v1/organizations/:organizationId/incidents/:incidentId/summaries` for active members. Summary generation never delays resolution. A missing key or two failed attempts leaves a visible `UNAVAILABLE` result, and reopening keeps the previous generation's summary. Provider response bodies and prompt contents are not logged.
+
 ## Web build output
 
 Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing requires symlink privileges. Container builds set the validated value to `standalone` for a minimal production runtime image.

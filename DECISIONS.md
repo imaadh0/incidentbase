@@ -104,6 +104,14 @@ An incident outbox event is staged into immutable email or webhook delivery rows
 
 Notification settings and delivery rows have forced tenant RLS. The runtime and worker roles own no tables and have no `BYPASSRLS`; narrowly scoped security-definer functions only claim/finish global worker work and resolve active recipient email addresses within explicit worker tenant context. Only Owner/Admin API endpoints may configure settings, request up to five test deliveries per organization per hour, or inspect delivery outcomes. Webhook URLs are limited to provider HTTPS hosts and paths, encrypted with AES-256-GCM using organization/channel authenticated data, and never returned by API or written into delivery rows. The deployment key must be held consistently by API and worker and rotated with a deliberate re-encryption procedure; changing it alone makes stored webhooks unreadable. Disabled channels produce no new deliveries. The worker needs a separate outbound Docker network; database and Redis remain on the internal backend network.
 
+## ADR-015: Incident summaries are asynchronous, generation-scoped results
+
+**Status:** Accepted
+
+Resolving an incident inserts a `PENDING` summary row in the same transaction as the resolution audit fact and outbox event. It does not call Groq or wait for a model response. A dedicated worker claims committed summaries with a short lease, uses at most two attempts, and stores either a validated `COMPLETED` text or a categorized `UNAVAILABLE` result. Missing credentials, timeouts, malformed output, and provider rejection cannot reverse resolution. The worker stores only safe error categories, never provider response bodies or prompts.
+
+Summary rows are unique per organization, incident, and lifecycle generation. Reopening increments a separate lifecycle generation, while ordinary reassignment only changes the escalation generation; earlier summaries remain readable. Each summary captures the resolution audit cursor and incident text at resolution. A worker-only, organization-checked database function retrieves at most 80 audit events no later than that cursor with actor display names. Prompt construction also bounds incident text and total characters, treats incident content as untrusted data, and requests validated JSON output. Forced RLS and composite incident foreign keys protect summary reads and relationships; the restricted worker role owns no tables and has no `BYPASSRLS`.
+
 ## Pending decisions
 
 Asynchronous summaries and multi-architecture deployment details will be documented in the milestones that introduce them.

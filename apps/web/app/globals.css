@@ -343,6 +343,12 @@ textarea:focus-visible {
   background: rgba(70, 215, 255, 0.09);
   color: var(--cyan);
 }
+.sidebar button.nav-link {
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
 .nav-link.muted {
   margin-top: 0.2rem;
   color: var(--subtle);
@@ -2393,5 +2399,150 @@ button.incident-link:hover span {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+/* Administration uses the same restrained panel language as the incident dashboard. */
+.administration-panel {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+.admin-tabs button,
+.admin-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.48rem;
+  background: var(--raised);
+  color: var(--muted);
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.admin-tabs button.active {
+  color: var(--text);
+  border-color: var(--cyan);
+}
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+.admin-card {
+  padding: 1.1rem;
+  min-width: 0;
+}
+.admin-narrow {
+  max-width: 42rem;
+}
+.admin-rows {
+  display: grid;
+  margin-top: 0.7rem;
+}
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-soft);
+  padding: 0.78rem 0.1rem;
+  min-width: 0;
+}
+.admin-row > div {
+  display: grid;
+  min-width: 0;
+}
+.admin-row strong {
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+.admin-row small,
+.admin-empty,
+.invitation-link small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.admin-row select,
+.admin-row button {
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--raised);
+  color: var(--text);
+  padding: 0.4rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.admin-row code,
+.invitation-link code {
+  color: var(--muted);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+.admin-tag {
+  border: 1px solid var(--border);
+  border-radius: 2rem;
+  padding: 0.3rem 0.55rem;
+  color: var(--green);
+  font-size: 0.72rem;
+}
+.admin-row .admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+.admin-policy-step {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.admin-policy-step > strong {
+  font-size: 0.8rem;
+}
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+.admin-check input {
+  accent-color: var(--cyan);
+}
+.admin-check span {
+  color: var(--green);
+  font-size: 0.7rem;
+}
+.admin-message {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.invitation-link {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+@media (max-width: 900px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
   }
 }

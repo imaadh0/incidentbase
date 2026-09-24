@@ -9,6 +9,7 @@ import {
   CircleDot,
   LogOut,
   Plus,
+  Settings2,
   Siren,
   Users,
   X,
@@ -43,6 +44,7 @@ import {
   type TimelineEntry,
 } from '../../lib/api';
 import { IncidentDashboard } from '../../components/incident-dashboard';
+import { AdministrationPanel } from '../../components/administration-panel';
 import { ThemeToggle } from '../../components/theme-toggle';
 
 export default function IncidentBasePage() {
@@ -101,6 +103,7 @@ function OperationsWorkspace({
   const [selected, setSelected] = useState<Incident | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [query, setQuery] = useState('');
+  const [view, setView] = useState<'overview' | 'administration'>('overview');
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,6 +155,7 @@ function OperationsWorkspace({
     if (organizationId !== '') localStorage.setItem('incidentbase.organization', organizationId);
     setSelectedId(null);
     setSelected(null);
+    setView('overview');
     setTimeline([]);
     cursorRef.current = '0';
     void loadWorkspace();
@@ -209,28 +213,39 @@ function OperationsWorkspace({
         memberships={activeMemberships}
         organizationId={organizationId}
         onOrganizationChange={setOrganizationId}
+        view={view}
+        onViewChange={(next) => {
+          setView(next);
+          if (next === 'administration') setSelectedId(null);
+        }}
+        canAdminister={membership.role === 'OWNER' || membership.role === 'ADMIN'}
         onLogout={() => void logout()}
       />
       <main className="main-content" id="top">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Workspace / Incidents</p>
-            <h1>Response overview</h1>
+            <p className="eyebrow">
+              Workspace / {view === 'overview' ? 'Incidents' : 'Administration'}
+            </p>
+            <h1>{view === 'overview' ? 'Response overview' : 'Organization settings'}</h1>
           </div>
           <div className="topbar-actions">
             <ThemeToggle compact />
-            <button className="primary-button" onClick={() => setShowCreate(true)} type="button">
-              <Plus size={17} />
-              New incident
-            </button>
+            {view === 'overview' && (
+              <button className="primary-button" onClick={() => setShowCreate(true)} type="button">
+                <Plus size={17} /> New incident
+              </button>
+            )}
           </div>
         </header>
 
-        <section className="status-strip">
-          <span className="status-pulse" />
-          <strong>Live incident feed</strong>
-          <span>Updates appear as your team responds</span>
-        </section>
+        {view === 'overview' && (
+          <section className="status-strip">
+            <span className="status-pulse" />
+            <strong>Live incident feed</strong>
+            <span>Updates appear as your team responds</span>
+          </section>
+        )}
         {error === null ? null : (
           <div className="error-banner" role="alert">
             {error}
@@ -240,17 +255,26 @@ function OperationsWorkspace({
           </div>
         )}
 
-        <IncidentDashboard
-          incidents={incidents}
-          members={members}
-          organizationName={membership.organizationName}
-          role={membership.role}
-          query={query}
-          onQueryChange={setQuery}
-          onSelect={(incident) => setSelectedId(incident.id)}
-          onCreate={() => setShowCreate(true)}
-          busy={busy}
-        />
+        {view === 'overview' ? (
+          <IncidentDashboard
+            incidents={incidents}
+            members={members}
+            organizationName={membership.organizationName}
+            role={membership.role}
+            query={query}
+            onQueryChange={setQuery}
+            onSelect={(incident) => setSelectedId(incident.id)}
+            onCreate={() => setShowCreate(true)}
+            busy={busy}
+          />
+        ) : (
+          <AdministrationPanel
+            organizationId={organizationId}
+            members={members}
+            role={membership.role}
+            onMembersChanged={loadWorkspace}
+          />
+        )}
       </main>
 
       {showCreate ? (
@@ -294,6 +318,9 @@ function Sidebar(props: {
   memberships: AccountMembership[];
   organizationId: string;
   onOrganizationChange: (id: string) => void;
+  view: 'overview' | 'administration';
+  onViewChange: (view: 'overview' | 'administration') => void;
+  canAdminister: boolean;
   onLogout: () => void;
 }) {
   const current = props.memberships.find((item) => item.organizationId === props.organizationId);
@@ -328,14 +355,27 @@ function Sidebar(props: {
       </label>
       <nav>
         <p className="nav-label">Main</p>
-        <a className="nav-link active" href="#top">
+        <button
+          className={`nav-link${props.view === 'overview' ? ' active' : ''}`}
+          onClick={() => props.onViewChange('overview')}
+          type="button"
+        >
           <Activity size={18} />
           Overview
-        </a>
-        <a className="nav-link" href="#incidents">
+        </button>
+        <button className="nav-link" onClick={() => props.onViewChange('overview')} type="button">
           <Siren size={18} />
           Incidents
-        </a>
+        </button>
+        {props.canAdminister && (
+          <button
+            className={`nav-link${props.view === 'administration' ? ' active' : ''}`}
+            onClick={() => props.onViewChange('administration')}
+            type="button"
+          >
+            <Settings2 size={18} /> Administration
+          </button>
+        )}
         <p className="nav-label secondary">Explore</p>
         <Link className="nav-link" href="/demo">
           <CircleDot size={18} />

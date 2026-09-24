@@ -34,6 +34,12 @@ export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () 
         { body: JSON.stringify(body), method: 'POST' },
         false,
       );
+      const invitation = new URLSearchParams(window.location.search).get('invitation');
+      if (invitation !== null) {
+        await apiRequest(`/invitations/${encodeURIComponent(invitation)}/accept`, {
+          method: 'POST',
+        });
+      }
       onAuthenticated();
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : 'Authentication failed.');

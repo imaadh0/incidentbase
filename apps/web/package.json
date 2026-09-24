@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "eslint app",
+    "lint": "eslint app components lib test",
     "start": "next start",
     "test": "vitest run --passWithNoTests --pool=threads --maxWorkers=1",
     "test:coverage": "vitest run --coverage --passWithNoTests --pool=threads --maxWorkers=1",

@@ -17,11 +17,17 @@ export {
 } from './tenant-unit-of-work.js';
 export {
   WorkerUnitOfWork,
+  type ClaimedNotificationDelivery,
   type ClaimedOutboxEvent,
   type RealtimeIncidentDetails,
   type WorkerOrganizationContext,
   type WorkerTransaction,
 } from './worker-unit-of-work.js';
+export {
+  NotificationSecretCodec,
+  validateWebhookUrl,
+  type WebhookChannel,
+} from './notification-security.js';
 export type {
   EscalationExpectation,
   EscalationOutcome,

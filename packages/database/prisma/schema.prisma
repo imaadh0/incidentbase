@@ -60,6 +60,23 @@ enum OutboxStatus {
   @@map("outbox_status")
 }
 
+enum NotificationChannel {
+  EMAIL
+  SLACK
+  DISCORD
+
+  @@map("notification_channel")
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+
+  @@map("notification_delivery_status")
+}
+
 model User {
   id                 String                   @id @default(uuid()) @db.Uuid
   email              String                   @unique
@@ -76,43 +93,45 @@ model User {
 }
 
 model Organization {
-  id                        String                   @id @default(uuid()) @db.Uuid
-  slug                      String                   @unique
+  id                        String                    @id @default(uuid()) @db.Uuid
+  slug                      String                    @unique
   name                      String
-  defaultEscalationPolicyId String?                  @map("default_escalation_policy_id") @db.Uuid
-  nextIncidentNumber        Int                      @default(1) @map("next_incident_number")
-  createdAt                 DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                 DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  defaultEscalationPolicyId String?                   @map("default_escalation_policy_id") @db.Uuid
+  nextIncidentNumber        Int                       @default(1) @map("next_incident_number")
+  createdAt                 DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships               OrganizationMembership[]
   invitations               OrganizationInvitation[]
   refreshSessions           RefreshSession[]
-  escalationPolicies        EscalationPolicy[]       @relation("OrganizationPolicies")
-  defaultEscalationPolicy   EscalationPolicy?        @relation("DefaultEscalationPolicy", fields: [id, defaultEscalationPolicyId], references: [organizationId, id], onDelete: Restrict)
+  escalationPolicies        EscalationPolicy[]        @relation("OrganizationPolicies")
+  defaultEscalationPolicy   EscalationPolicy?         @relation("DefaultEscalationPolicy", fields: [id, defaultEscalationPolicyId], references: [organizationId, id], onDelete: Restrict)
   policyVersions            EscalationPolicyVersion[]
   policySteps               EscalationPolicyStep[]
   incidents                 Incident[]
   auditLogs                 AuditLog[]
   outboxEvents              OutboxEvent[]
+  notificationSettings      NotificationSetting?
+  notificationDeliveries    NotificationDelivery[]
 
   @@map("organizations")
 }
 
 model OrganizationMembership {
-  id              String                   @default(uuid()) @db.Uuid
-  organizationId  String                   @map("organization_id") @db.Uuid
-  userId          String                   @map("user_id") @db.Uuid
-  role            OrganizationRole
-  status          MembershipStatus         @default(INVITED)
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user            User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invitations     OrganizationInvitation[] @relation("InvitationCreatorMembership")
-  refreshSessions RefreshSession[]
-  policySteps     EscalationPolicyStep[]
-  reportedIncidents Incident[]             @relation("IncidentReporter")
-  assignedIncidents Incident[]             @relation("IncidentAssignee")
-  auditLogs       AuditLog[]
+  id                String                   @default(uuid()) @db.Uuid
+  organizationId    String                   @map("organization_id") @db.Uuid
+  userId            String                   @map("user_id") @db.Uuid
+  role              OrganizationRole
+  status            MembershipStatus         @default(INVITED)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization      Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitations       OrganizationInvitation[] @relation("InvitationCreatorMembership")
+  refreshSessions   RefreshSession[]
+  policySteps       EscalationPolicyStep[]
+  reportedIncidents Incident[]               @relation("IncidentReporter")
+  assignedIncidents Incident[]               @relation("IncidentAssignee")
+  auditLogs         AuditLog[]
 
   @@id([organizationId, id])
   @@unique([organizationId, userId])
@@ -199,15 +218,15 @@ model EscalationPolicyVersion {
 }
 
 model EscalationPolicyStep {
-  id                    String                    @default(uuid()) @db.Uuid
-  organizationId        String                    @map("organization_id") @db.Uuid
-  policyVersionId       String                    @map("policy_version_id") @db.Uuid
+  id                    String                  @default(uuid()) @db.Uuid
+  organizationId        String                  @map("organization_id") @db.Uuid
+  policyVersionId       String                  @map("policy_version_id") @db.Uuid
   position              Int
-  responderMembershipId String                    @map("responder_membership_id") @db.Uuid
-  waitSeconds           Int                       @map("wait_seconds")
-  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  policyVersion         EscalationPolicyVersion   @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
-  responderMembership   OrganizationMembership    @relation(fields: [organizationId, responderMembershipId], references: [organizationId, id], onDelete: Restrict)
+  responderMembershipId String                  @map("responder_membership_id") @db.Uuid
+  waitSeconds           Int                     @map("wait_seconds")
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  policyVersion         EscalationPolicyVersion @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
+  responderMembership   OrganizationMembership  @relation(fields: [organizationId, responderMembershipId], references: [organizationId, id], onDelete: Restrict)
 
   @@id([organizationId, id])
   @@unique([organizationId, policyVersionId, position])
@@ -215,32 +234,32 @@ model EscalationPolicyStep {
 }
 
 model Incident {
-  id                       String                     @default(uuid()) @db.Uuid
-  organizationId           String                     @map("organization_id") @db.Uuid
-  referenceNumber          Int                        @map("reference_number")
-  title                    String
-  description              String
-  severity                 IncidentSeverity
-  status                   IncidentStatus             @default(OPEN)
-  reporterMembershipId     String                     @map("reporter_membership_id") @db.Uuid
-  assignedMembershipId     String                     @map("assigned_membership_id") @db.Uuid
-  policyVersionId          String                     @map("policy_version_id") @db.Uuid
-  currentEscalationStep    Int                        @default(0) @map("current_escalation_step")
-  escalationGeneration     Int                        @default(0) @map("escalation_generation")
-  nextEscalationAt         DateTime?                  @map("next_escalation_at") @db.Timestamptz(3)
-  firstEscalatedAt         DateTime?                  @map("first_escalated_at") @db.Timestamptz(3)
-  escalationExhaustedAt    DateTime?                  @map("escalation_exhausted_at") @db.Timestamptz(3)
-  acknowledgedAt           DateTime?                  @map("acknowledged_at") @db.Timestamptz(3)
-  investigatingAt          DateTime?                  @map("investigating_at") @db.Timestamptz(3)
-  resolvedAt               DateTime?                  @map("resolved_at") @db.Timestamptz(3)
-  version                  Int                        @default(1)
-  createdAt                DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  reporterMembership       OrganizationMembership     @relation("IncidentReporter", fields: [organizationId, reporterMembershipId], references: [organizationId, id], onDelete: Restrict)
-  assignedMembership       OrganizationMembership     @relation("IncidentAssignee", fields: [organizationId, assignedMembershipId], references: [organizationId, id], onDelete: Restrict)
-  policyVersion            EscalationPolicyVersion    @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
-  auditLogs                AuditLog[]
+  id                    String                  @default(uuid()) @db.Uuid
+  organizationId        String                  @map("organization_id") @db.Uuid
+  referenceNumber       Int                     @map("reference_number")
+  title                 String
+  description           String
+  severity              IncidentSeverity
+  status                IncidentStatus          @default(OPEN)
+  reporterMembershipId  String                  @map("reporter_membership_id") @db.Uuid
+  assignedMembershipId  String                  @map("assigned_membership_id") @db.Uuid
+  policyVersionId       String                  @map("policy_version_id") @db.Uuid
+  currentEscalationStep Int                     @default(0) @map("current_escalation_step")
+  escalationGeneration  Int                     @default(0) @map("escalation_generation")
+  nextEscalationAt      DateTime?               @map("next_escalation_at") @db.Timestamptz(3)
+  firstEscalatedAt      DateTime?               @map("first_escalated_at") @db.Timestamptz(3)
+  escalationExhaustedAt DateTime?               @map("escalation_exhausted_at") @db.Timestamptz(3)
+  acknowledgedAt        DateTime?               @map("acknowledged_at") @db.Timestamptz(3)
+  investigatingAt       DateTime?               @map("investigating_at") @db.Timestamptz(3)
+  resolvedAt            DateTime?               @map("resolved_at") @db.Timestamptz(3)
+  version               Int                     @default(1)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reporterMembership    OrganizationMembership  @relation("IncidentReporter", fields: [organizationId, reporterMembershipId], references: [organizationId, id], onDelete: Restrict)
+  assignedMembership    OrganizationMembership  @relation("IncidentAssignee", fields: [organizationId, assignedMembershipId], references: [organizationId, id], onDelete: Restrict)
+  policyVersion         EscalationPolicyVersion @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
+  auditLogs             AuditLog[]
 
   @@id([organizationId, id])
   @@unique([organizationId, referenceNumber])
@@ -266,23 +285,63 @@ model AuditLog {
 }
 
 model OutboxEvent {
-  id               String         @default(uuid()) @db.Uuid
-  organizationId   String         @map("organization_id") @db.Uuid
-  aggregateType    String         @map("aggregate_type")
-  aggregateId      String         @map("aggregate_id") @db.Uuid
-  eventType        String         @map("event_type")
-  payload          Json
-  deduplicationKey String         @map("deduplication_key")
-  status           OutboxStatus   @default(PENDING)
-  attempts         Int            @default(0)
-  availableAt      DateTime       @default(now()) @map("available_at") @db.Timestamptz(3)
-  processedAt      DateTime?      @map("processed_at") @db.Timestamptz(3)
-  lastError        String?        @map("last_error")
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                     String                 @default(uuid()) @db.Uuid
+  organizationId         String                 @map("organization_id") @db.Uuid
+  aggregateType          String                 @map("aggregate_type")
+  aggregateId            String                 @map("aggregate_id") @db.Uuid
+  eventType              String                 @map("event_type")
+  payload                Json
+  deduplicationKey       String                 @map("deduplication_key")
+  status                 OutboxStatus           @default(PENDING)
+  attempts               Int                    @default(0)
+  availableAt            DateTime               @default(now()) @map("available_at") @db.Timestamptz(3)
+  processedAt            DateTime?              @map("processed_at") @db.Timestamptz(3)
+  lastError              String?                @map("last_error")
+  createdAt              DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notificationDeliveries NotificationDelivery[]
 
   @@id([organizationId, id])
   @@unique([organizationId, deduplicationKey])
   @@index([status, availableAt])
   @@map("outbox_events")
+}
+
+model NotificationSetting {
+  organizationId           String       @id @map("organization_id") @db.Uuid
+  emailEnabled             Boolean      @default(false) @map("email_enabled")
+  slackEnabled             Boolean      @default(false) @map("slack_enabled")
+  discordEnabled           Boolean      @default(false) @map("discord_enabled")
+  slackWebhookCiphertext   String?      @map("slack_webhook_ciphertext")
+  discordWebhookCiphertext String?      @map("discord_webhook_ciphertext")
+  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+model NotificationDelivery {
+  id             String                     @default(uuid()) @db.Uuid
+  organizationId String                     @map("organization_id") @db.Uuid
+  eventId        String                     @map("event_id") @db.Uuid
+  channel        NotificationChannel
+  recipient      String
+  deliveryKey    String                     @map("delivery_key")
+  subject        String
+  body           String
+  status         NotificationDeliveryStatus @default(PENDING)
+  attempts       Int                        @default(0)
+  availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(3)
+  sentAt         DateTime?                  @map("sent_at") @db.Timestamptz(3)
+  providerId     String?                    @map("provider_id")
+  lastError      String?                    @map("last_error")
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event          OutboxEvent                @relation(fields: [organizationId, eventId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([organizationId, id])
+  @@unique([organizationId, deliveryKey])
+  @@index([status, availableAt])
+  @@map("notification_deliveries")
 }

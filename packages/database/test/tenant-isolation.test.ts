@@ -254,4 +254,77 @@ describeWithDatabase.sequential('tenant database boundary', () => {
     ]);
     expect(runtimeOwnedTables[0]?.count).toBe(0n);
   });
+
+  it('forces notification RLS and composite event links across tenants', async () => {
+    const eventB = randomUUID();
+    await database.outboxEvent.create({
+      data: {
+        id: eventB,
+        organizationId: ids.organizationB,
+        aggregateType: 'notification-test',
+        aggregateId: ids.membershipB,
+        eventType: 'notification.test-requested',
+        payload: {},
+        deduplicationKey: `test:${eventB}`,
+      },
+    });
+    await database.notificationSetting.create({
+      data: { organizationId: ids.organizationB, emailEnabled: true },
+    });
+    const deliveryB = await database.notificationDelivery.create({
+      data: {
+        organizationId: ids.organizationB,
+        eventId: eventB,
+        channel: 'EMAIL',
+        recipient: 'owner-b@example.test',
+        deliveryKey: `test:${eventB}:email`,
+        subject: 'Test',
+        body: 'Test',
+      },
+    });
+    await unitOfWork.withTenant(
+      { organizationId: ids.organizationA, userId: ids.ownerA },
+      async ({ transaction }) => {
+        expect(
+          await transaction.notificationSetting.findUnique({
+            where: { organizationId: ids.organizationB },
+          }),
+        ).toBeNull();
+        expect(
+          await transaction.notificationDelivery.findFirst({ where: { id: deliveryB.id } }),
+        ).toBeNull();
+      },
+    );
+    await expect(
+      unitOfWork.withTenant(
+        { organizationId: ids.organizationA, userId: ids.ownerA },
+        ({ transaction }) =>
+          transaction.notificationDelivery.create({
+            data: {
+              organizationId: ids.organizationA,
+              eventId: eventB,
+              channel: 'EMAIL',
+              recipient: 'owner-a@example.test',
+              deliveryKey: `guess:${eventB}`,
+              subject: 'Guess',
+              body: 'Guess',
+            },
+          }),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      unitOfWork.withTenant(
+        { organizationId: ids.organizationA, userId: ids.suspended },
+        ({ transaction }) => transaction.notificationSetting.findMany(),
+      ),
+    ).rejects.toBeInstanceOf(TenantAccessDeniedError);
+    const flags = await database.$queryRaw<
+      Array<{ relname: string; relforcerowsecurity: boolean }>
+    >`
+      SELECT relname, relforcerowsecurity FROM pg_class
+      WHERE relname IN ('notification_settings', 'notification_deliveries')
+    `;
+    expect(flags).toHaveLength(2);
+    expect(flags.every((row) => row.relforcerowsecurity)).toBe(true);
+  });
 });

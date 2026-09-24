@@ -34,6 +34,18 @@ export interface RealtimeIncidentDetails {
   version: number;
 }
 
+export interface ClaimedNotificationDelivery {
+  organizationId: string;
+  deliveryId: string;
+  eventId: string;
+  channel: 'EMAIL' | 'SLACK' | 'DISCORD';
+  recipient: string;
+  deliveryKey: string;
+  subject: string;
+  body: string;
+  attempts: number;
+}
+
 export class WorkerUnitOfWork {
   public constructor(private readonly client: DatabaseClient) {}
 
@@ -128,6 +140,146 @@ export class WorkerUnitOfWork {
         ...incident,
         ...(recipient === null ? {} : { recipientUserId: recipient.userId }),
       };
+    });
+  }
+
+  public async stageIncidentNotifications(event: ClaimedOutboxEvent): Promise<void> {
+    const assignmentEvents = new Set([
+      'incident.created',
+      'incident.reassigned',
+      'incident.reopened',
+      'incident.escalated',
+    ]);
+    if (
+      event.aggregateType !== 'incident' ||
+      (!assignmentEvents.has(event.eventType) &&
+        event.eventType !== 'incident.escalation-exhausted')
+    )
+      return;
+
+    await this.withOrganization(
+      { organizationId: event.organizationId },
+      async ({ transaction }) => {
+        const settings = await transaction.notificationSetting.findUnique({
+          where: { organizationId: event.organizationId },
+        });
+        if (
+          settings === null ||
+          (!settings.emailEnabled && !settings.slackEnabled && !settings.discordEnabled)
+        )
+          return;
+        const incident = await transaction.incident.findFirst({
+          where: { organizationId: event.organizationId, id: event.aggregateId },
+          select: { title: true, referenceNumber: true },
+        });
+        if (incident === null) return;
+        const payload =
+          typeof event.payload === 'object' &&
+          event.payload !== null &&
+          !Array.isArray(event.payload)
+            ? (event.payload as Record<string, unknown>)
+            : {};
+        const exhausted = event.eventType === 'incident.escalation-exhausted';
+        const assignedId = payload.assignedMembershipId;
+        if (!exhausted && typeof assignedId !== 'string')
+          throw new Error('Notification event has no assignee.');
+        const subject = exhausted
+          ? `Incident #${incident.referenceNumber} escalation exhausted`
+          : `Incident #${incident.referenceNumber} assigned to you`;
+        const body = `${subject}: ${incident.title}`;
+        const rows: Array<{ membershipId: string; email: string }> = settings.emailEnabled
+          ? await transaction.$queryRaw`
+            SELECT membership_id AS "membershipId", email
+            FROM app.worker_notification_recipients(
+              ${event.organizationId}::UUID, ${exhausted ? null : assignedId}::UUID
+            )
+          `
+          : [];
+        const deliveries = [
+          ...rows.map((row) => ({
+            organizationId: event.organizationId,
+            eventId: event.eventId,
+            channel: 'EMAIL' as const,
+            recipient: row.email,
+            deliveryKey: `${event.eventId}:EMAIL:${row.membershipId}`,
+            subject,
+            body,
+          })),
+          ...(settings.slackEnabled
+            ? [
+                {
+                  organizationId: event.organizationId,
+                  eventId: event.eventId,
+                  channel: 'SLACK' as const,
+                  recipient: 'Slack webhook',
+                  deliveryKey: `${event.eventId}:SLACK`,
+                  subject,
+                  body,
+                },
+              ]
+            : []),
+          ...(settings.discordEnabled
+            ? [
+                {
+                  organizationId: event.organizationId,
+                  eventId: event.eventId,
+                  channel: 'DISCORD' as const,
+                  recipient: 'Discord webhook',
+                  deliveryKey: `${event.eventId}:DISCORD`,
+                  subject,
+                  body,
+                },
+              ]
+            : []),
+        ];
+        if (deliveries.length > 0)
+          await transaction.notificationDelivery.createMany({
+            data: deliveries,
+            skipDuplicates: true,
+          });
+      },
+    );
+  }
+
+  public claimNotificationDeliveries(limit = 100): Promise<ClaimedNotificationDelivery[]> {
+    return this.client.$queryRaw`
+      SELECT organization_id AS "organizationId", delivery_id AS "deliveryId",
+        event_id AS "eventId", channel, recipient, delivery_key AS "deliveryKey",
+        subject, body, attempts
+      FROM app.worker_claim_notification_deliveries(${limit})
+    `;
+  }
+
+  public async finishNotificationDelivery(
+    delivery: ClaimedNotificationDelivery,
+    providerId: string | null,
+    error: string | null,
+    retryable: boolean,
+  ): Promise<void> {
+    await this.client.$queryRaw`
+      SELECT app.worker_finish_notification_delivery(
+        ${delivery.organizationId}::UUID, ${delivery.deliveryId}::UUID,
+        ${providerId}, ${error}, ${retryable}
+      )::text
+    `;
+  }
+
+  public notificationWebhookCiphertext(
+    organizationId: string,
+    channel: 'SLACK' | 'DISCORD',
+  ): Promise<string | null> {
+    return this.withOrganization({ organizationId }, async ({ transaction }) => {
+      const settings = await transaction.notificationSetting.findUnique({
+        where: { organizationId },
+      });
+      if (settings === null) return null;
+      return channel === 'SLACK'
+        ? settings.slackEnabled
+          ? settings.slackWebhookCiphertext
+          : null
+        : settings.discordEnabled
+          ? settings.discordWebhookCiphertext
+          : null;
     });
   }
 }

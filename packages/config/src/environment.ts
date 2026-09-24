@@ -23,6 +23,7 @@ export const apiEnvironmentSchema = runtimeSchema
   .extend({
     API_HOST: z.string().min(1).default('0.0.0.0'),
     API_PORT: z.coerce.number().int().positive().max(65_535).default(4000),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
     WEB_ORIGIN: z.url(),
     DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_URL: z.url(),
@@ -53,6 +54,9 @@ export const workerEnvironmentSchema = runtimeSchema
   .extend({
     DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_URL: z.url(),
+    METRICS_TOKEN: z.string().min(32),
+    WORKER_HEALTH_HOST: z.string().min(1).default('0.0.0.0'),
+    WORKER_HEALTH_PORT: z.coerce.number().int().positive().max(65_535).default(4001),
     ESCALATION_RECONCILIATION_INTERVAL_MS: z.coerce
       .number()
       .int()

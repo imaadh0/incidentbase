@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'node:http';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import type { Logger } from 'pino';
+import type { ServiceMetrics } from '@incidentbase/observability';
 import { Server } from 'socket.io';
 import { z } from 'zod';
 
@@ -24,6 +25,7 @@ interface RealtimeGatewayOptions {
   accessTokens: AccessTokenService;
   httpServer: HttpServer;
   logger: Logger;
+  metrics?: ServiceMetrics;
   redisUrl: string;
   tenantUnitOfWork: TenantUnitOfWork;
   webOrigin: string;
@@ -70,6 +72,8 @@ export async function createRealtimeGateway(
       socket.disconnect(true);
       return;
     }
+    options.metrics?.activeSockets.inc();
+    socket.once('disconnect', () => options.metrics?.activeSockets.dec());
     void socket.join(userRoom(userId));
 
     socket.on(

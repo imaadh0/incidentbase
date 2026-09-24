@@ -49,6 +49,15 @@ describe('API foundation', () => {
     expect(body.timestamp).toEqual(expect.any(String));
   });
 
+  it('keeps the reverse proxy request ID for correlated logs', async () => {
+    const proxyRequestId = '0123456789abcdef0123456789abcdef';
+    const response = await request(createTestApp())
+      .get('/health/live')
+      .set('x-request-id', proxyRequestId)
+      .expect(200);
+    expect(response.headers['x-request-id']).toBe(proxyRequestId);
+  });
+
   it('reports degraded readiness without exposing dependency errors', async () => {
     const response = await request(
       createTestApp({ database: () => Promise.reject(new Error('secret connection details')) }),

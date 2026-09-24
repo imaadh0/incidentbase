@@ -112,6 +112,14 @@ Resolving an incident inserts a `PENDING` summary row in the same transaction as
 
 Summary rows are unique per organization, incident, and lifecycle generation. Reopening increments a separate lifecycle generation, while ordinary reassignment only changes the escalation generation; earlier summaries remain readable. Each summary captures the resolution audit cursor and incident text at resolution. A worker-only, organization-checked database function retrieves at most 80 audit events no later than that cursor with actor display names. Prompt construction also bounds incident text and total characters, treats incident content as untrusted data, and requests validated JSON output. Forced RLS and composite incident foreign keys protect summary reads and relationships; the restricted worker role owns no tables and has no `BYPASSRLS`.
 
+## ADR-016: Distributed write limits preserve emergency incident response
+
+**Status:** Accepted
+
+API replicas share exact sliding windows in Redis. An atomic script uses Redis server time and a sorted set per hashed IP or organization/user dimension, preventing concurrent requests from exceeding the quota. Sign-in is limited to 10 requests per IP per 15 minutes; incident creation to 10 per member per minute; and incident commands to 30 per member per minute. The API trusts only its configured number of reverse-proxy hops when deriving the client IP.
+
+If Redis cannot answer, sign-in fails closed with a redacted `503` to avoid disabling brute-force protection. Incident creation and response commands fail open and emit a structured warning and metric: an emergency response must remain possible during a Redis outage. Authorization, tenant RLS, CSRF, and optimistic concurrency remain in force. The existing transaction-backed organization test-notification limit remains five per hour.
+
 ## Pending decisions
 
-Asynchronous summaries and multi-architecture deployment details will be documented in the milestones that introduce them.
+Production TLS certificates and provider credentials are operator-supplied at deployment time; neither is stored in the repository.

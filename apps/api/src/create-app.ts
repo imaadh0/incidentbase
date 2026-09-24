@@ -12,6 +12,7 @@ import { createErrorHandler } from './middleware/error-handler.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { createRequestContextMiddleware } from './middleware/request-context.js';
 import { createRequestMetricsMiddleware } from './middleware/request-metrics.js';
+import { createRateLimitMiddleware, type RateLimitStore } from './middleware/rate-limit.js';
 import { createHealthRouter, type ReadinessCheck } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { AuthenticationService } from './auth/authentication-service.js';
@@ -39,12 +40,14 @@ export interface CreateAppOptions {
   readinessChecks?: Readonly<Record<string, ReadinessCheck>>;
   tenantBoundary?: TenantBoundaryOptions;
   authentication?: AuthenticationOptions;
+  rateLimitStore?: RateLimitStore;
 }
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
 
   app.disable('x-powered-by');
+  app.set('trust proxy', options.environment.TRUST_PROXY_HOPS);
   app.use(helmet());
   app.use(
     cors({
@@ -55,6 +58,16 @@ export function createApp(options: CreateAppOptions): Express {
   app.use(createRequestContextMiddleware(options.logger));
   app.use(express.json({ limit: '1mb' }));
   app.use(createRequestMetricsMiddleware(options.metrics));
+  if (options.rateLimitStore && options.tenantBoundary) {
+    app.use(
+      createRateLimitMiddleware({
+        store: options.rateLimitStore,
+        resolvePrincipal: options.tenantBoundary.resolvePrincipal,
+        logger: options.logger,
+        metrics: options.metrics,
+      }),
+    );
+  }
   app.use(
     createHealthRouter({
       logger: options.logger,

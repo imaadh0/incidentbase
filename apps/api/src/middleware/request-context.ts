@@ -4,7 +4,7 @@ import type { RequestHandler } from 'express';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-const trustedRequestIdSchema = z.uuid();
+const trustedRequestIdSchema = z.union([z.uuid(), z.string().regex(/^[a-f0-9]{32}$/u)]);
 
 export function createRequestContextMiddleware(logger: Logger): RequestHandler {
   return (request, response, next) => {

@@ -9,12 +9,14 @@ import {
   TenantUnitOfWork,
 } from '@incidentbase/database';
 import type { Logger } from 'pino';
+import { Redis } from 'ioredis';
 
 import { createApp } from './create-app.js';
 import { registerShutdownHandlers } from './shutdown.js';
 import { AuthenticationService } from './auth/authentication-service.js';
 import { authenticateRequest } from './auth/request-authentication.js';
 import { createRealtimeGateway } from './realtime/realtime-gateway.js';
+import { RedisRateLimitStore } from './middleware/rate-limit.js';
 
 interface StartApiServerOptions {
   environment: ApiEnvironment;
@@ -28,6 +30,12 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
   }
   const metrics = createServiceMetrics('api');
   const database = createDatabaseClient({ connectionString: options.environment.DATABASE_URL });
+  const rateLimitRedis = new Redis(options.environment.REDIS_URL, {
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 1,
+  });
+  rateLimitRedis.on('error', () => options.logger.warn('Rate-limit Redis connection error'));
+  await rateLimitRedis.ping();
   const accessTokens = new AccessTokenService({
     audience: options.environment.AUTH_AUDIENCE,
     expiresInSeconds: options.environment.ACCESS_TOKEN_TTL_SECONDS,
@@ -44,9 +52,13 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     environment: options.environment,
     logger: options.logger,
     metrics,
+    rateLimitStore: new RedisRateLimitStore(rateLimitRedis),
     readinessChecks: {
       database: async () => {
         await database.$queryRaw`SELECT 1`;
+      },
+      redis: async () => {
+        await rateLimitRedis.ping();
       },
     },
     tenantBoundary: {
@@ -59,6 +71,7 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     accessTokens,
     httpServer: server,
     logger: options.logger,
+    metrics,
     redisUrl: options.environment.REDIS_URL,
     tenantUnitOfWork: new TenantUnitOfWork(database),
     webOrigin: options.environment.WEB_ORIGIN,
@@ -75,6 +88,7 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
         });
       }
       await database.$disconnect();
+      rateLimitRedis.disconnect();
       await options.telemetry.shutdown();
     },
   });

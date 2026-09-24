@@ -27,6 +27,16 @@ describe('parseEnvironment', () => {
 
     expect(result.API_PORT).toBe(4000);
     expect(result.OTEL_ENABLED).toBe(false);
+    expect(result.TRUST_PROXY_HOPS).toBe(1);
+  });
+
+  it('rejects unbounded reverse-proxy trust', () => {
+    expect(() =>
+      parseEnvironment('api', apiEnvironmentSchema, {
+        ...validEnvironment,
+        TRUST_PROXY_HOPS: '99',
+      }),
+    ).toThrow(/TRUST_PROXY_HOPS/);
   });
 
   it('reports field names without exposing invalid secret values', () => {
@@ -65,6 +75,7 @@ describe('parseEnvironment', () => {
       DATABASE_URL: 'postgresql://incidentbase_worker_app:password@localhost:5432/incidentbase',
       OTEL_ENABLED: 'false',
       REDIS_URL: 'redis://localhost:6379',
+      METRICS_TOKEN: 'a-secure-test-token-with-32-characters',
     });
 
     expect(result.ESCALATION_RECONCILIATION_INTERVAL_MS).toBe(30_000);

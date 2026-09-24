@@ -19,6 +19,8 @@ pnpm build
 
 Copy `.env.example` to `.env` before running services. Environment values are validated at startup; invalid configuration prevents a partial startup.
 
+With the Compose stack running, open `http://localhost/` for the public landing page. The read-only sample is at `/demo`, authentication is at `/sign-in`, and the live incident workspace is at `/app`. The appearance toggle is available across these pages and remembers the choice in the browser.
+
 ## Architecture
 
 See [DECISIONS.md](./DECISIONS.md) for the decisions that shape the system and `docs/` for operational and architectural notes.

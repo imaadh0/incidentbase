@@ -10,10 +10,15 @@ import {
   MembershipStatus,
   OrganizationRole,
   TenantUnitOfWork,
+  WorkerUnitOfWork,
 } from '../src/index.js';
 import { resetTestDatabase } from './reset-test-database.js';
 
 const testDatabaseUrl = process.env.DATABASE_TEST_URL;
+const workerDatabaseUrl = process.env.WORKER_TEST_DATABASE_URL;
+if (testDatabaseUrl !== undefined && workerDatabaseUrl === undefined) {
+  throw new Error('WORKER_TEST_DATABASE_URL is required when DATABASE_TEST_URL is set.');
+}
 const describeWithDatabase = testDatabaseUrl === undefined ? describe.skip : describe;
 
 describeWithDatabase.sequential('policy and incident lifecycle repository', () => {
@@ -21,6 +26,11 @@ describeWithDatabase.sequential('policy and incident lifecycle repository', () =
 
   const database = createDatabaseClient({ connectionString: testDatabaseUrl });
   const unitOfWork = new TenantUnitOfWork(database);
+  const workerDatabase = createDatabaseClient({ connectionString: workerDatabaseUrl! });
+  const worker = new WorkerUnitOfWork(workerDatabase);
+  let resolutionSummaryId: string;
+  let reopenedIncidentId: string;
+  let reopenedIncidentVersion: number;
   const suffix = randomUUID().slice(0, 8);
   const ids = {
     organizationA: randomUUID(),
@@ -130,6 +140,7 @@ describeWithDatabase.sequential('policy and incident lifecycle repository', () =
   });
 
   afterAll(async () => {
+    await workerDatabase.$disconnect();
     await database.$disconnect();
   });
 
@@ -245,6 +256,12 @@ describeWithDatabase.sequential('policy and incident lifecycle repository', () =
     );
     const resolved = await commandAsResponder(incident.id, investigating.version, 'resolve');
     expect(resolved.status).toBe(IncidentStatus.RESOLVED);
+    const summaries = await unitOfWork.withTenant(
+      { organizationId: ids.organizationA, userId: ids.ownerA },
+      (tenant) => tenant.incidents.summaries(incident.id),
+    );
+    expect(summaries).toMatchObject([{ lifecycleGeneration: 0, status: 'PENDING', attempts: 0 }]);
+    resolutionSummaryId = summaries[0]!.id;
 
     const counts = await unitOfWork.withTenant(
       { organizationId: ids.organizationA, userId: ids.ownerA },
@@ -263,8 +280,92 @@ describeWithDatabase.sequential('policy and incident lifecycle repository', () =
     );
     expect(reopened).toMatchObject({
       escalationGeneration: 1,
+      lifecycleGeneration: 1,
       status: IncidentStatus.OPEN,
     });
+    reopenedIncidentId = reopened.id;
+    reopenedIncidentVersion = reopened.version;
+    expect(
+      await unitOfWork.withTenant(
+        { organizationId: ids.organizationA, userId: ids.ownerA },
+        (tenant) => tenant.incidents.summaries(incident.id),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('bounds summary timeline at resolution and marks final provider failure unavailable', async () => {
+    const [claimed] = await worker.claimIncidentSummaries(10);
+    expect(claimed?.summaryId).toBe(resolutionSummaryId);
+    const timeline = await worker.summaryTimeline(claimed!);
+    expect(timeline.at(-1)?.action).toBe('incident.resolved');
+    expect(timeline.map((entry) => entry.action)).not.toContain('incident.reopened');
+    expect(timeline.some((entry) => entry.actorName === 'Responder A2')).toBe(true);
+    await worker.finishIncidentSummary(claimed!, null, null, 'TIMEOUT_OR_NETWORK');
+    const first = await database.incidentSummary.findFirstOrThrow({
+      where: { id: resolutionSummaryId },
+    });
+    expect(first).toMatchObject({
+      status: 'PENDING',
+      attempts: 1,
+      errorCategory: 'TIMEOUT_OR_NETWORK',
+    });
+    await database.incidentSummary.update({
+      where: {
+        organizationId_id: {
+          organizationId: ids.organizationA,
+          id: resolutionSummaryId,
+        },
+      },
+      data: { availableAt: new Date(Date.now() - 1_000) },
+    });
+    const [second] = await worker.claimIncidentSummaries(10);
+    expect(second?.summaryId).toBe(resolutionSummaryId);
+    await worker.finishIncidentSummary(second!, null, null, 'MALFORMED_OUTPUT');
+    expect(
+      await database.incidentSummary.findFirstOrThrow({ where: { id: resolutionSummaryId } }),
+    ).toMatchObject({ status: 'UNAVAILABLE', attempts: 2, errorCategory: 'MALFORMED_OUTPUT' });
+    expect(await worker.claimIncidentSummaries(10)).toEqual([]);
+  });
+
+  it('stores a completed summary for a reopened generation without replacing the unavailable prior one', async () => {
+    const acknowledged = await commandAsResponder(
+      reopenedIncidentId,
+      reopenedIncidentVersion,
+      'acknowledge',
+    );
+    const investigating = await commandAsResponder(
+      reopenedIncidentId,
+      acknowledged.version,
+      'investigate',
+    );
+    await commandAsResponder(reopenedIncidentId, investigating.version, 'resolve');
+    const [claimed] = await worker.claimIncidentSummaries(10);
+    expect(claimed).toMatchObject({
+      incidentId: reopenedIncidentId,
+      lifecycleGeneration: 1,
+      attempts: 1,
+    });
+    await worker.finishIncidentSummary(
+      claimed!,
+      'Responder A2 acknowledged and resolved the reopened incident.',
+      'llama-3.3-70b-versatile',
+      null,
+    );
+    const summaries = await unitOfWork.withTenant(
+      { organizationId: ids.organizationA, userId: ids.ownerA },
+      (tenant) => tenant.incidents.summaries(reopenedIncidentId),
+    );
+    expect(summaries).toMatchObject([
+      { lifecycleGeneration: 1, status: 'COMPLETED', attempts: 1 },
+      { lifecycleGeneration: 0, status: 'UNAVAILABLE', attempts: 2 },
+    ]);
+    expect(summaries[0]?.text).toContain('Responder A2');
+    const otherTenant = await unitOfWork.withTenant(
+      { organizationId: ids.organizationB, userId: ids.ownerB },
+      ({ transaction }) =>
+        transaction.incidentSummary.findFirst({ where: { id: claimed!.summaryId } }),
+    );
+    expect(otherTenant).toBeNull();
   });
 
   it('allows only one simultaneous acknowledgement of the same version', async () => {

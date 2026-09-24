@@ -77,6 +77,15 @@ enum NotificationDeliveryStatus {
   @@map("notification_delivery_status")
 }
 
+enum IncidentSummaryStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  UNAVAILABLE
+
+  @@map("incident_summary_status")
+}
+
 model User {
   id                 String                   @id @default(uuid()) @db.Uuid
   email              String                   @unique
@@ -112,6 +121,7 @@ model Organization {
   outboxEvents              OutboxEvent[]
   notificationSettings      NotificationSetting?
   notificationDeliveries    NotificationDelivery[]
+  incidentSummaries         IncidentSummary[]
 
   @@map("organizations")
 }
@@ -246,6 +256,7 @@ model Incident {
   policyVersionId       String                  @map("policy_version_id") @db.Uuid
   currentEscalationStep Int                     @default(0) @map("current_escalation_step")
   escalationGeneration  Int                     @default(0) @map("escalation_generation")
+  lifecycleGeneration   Int                     @default(0) @map("lifecycle_generation")
   nextEscalationAt      DateTime?               @map("next_escalation_at") @db.Timestamptz(3)
   firstEscalatedAt      DateTime?               @map("first_escalated_at") @db.Timestamptz(3)
   escalationExhaustedAt DateTime?               @map("escalation_exhausted_at") @db.Timestamptz(3)
@@ -260,6 +271,7 @@ model Incident {
   assignedMembership    OrganizationMembership  @relation("IncidentAssignee", fields: [organizationId, assignedMembershipId], references: [organizationId, id], onDelete: Restrict)
   policyVersion         EscalationPolicyVersion @relation(fields: [organizationId, policyVersionId], references: [organizationId, id], onDelete: Restrict)
   auditLogs             AuditLog[]
+  summaries             IncidentSummary[]
 
   @@id([organizationId, id])
   @@unique([organizationId, referenceNumber])
@@ -344,4 +356,30 @@ model NotificationDelivery {
   @@unique([organizationId, deliveryKey])
   @@index([status, availableAt])
   @@map("notification_deliveries")
+}
+
+model IncidentSummary {
+  id                  String                @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
+  incidentId          String                @map("incident_id") @db.Uuid
+  lifecycleGeneration Int                   @map("lifecycle_generation")
+  resolutionAuditId   BigInt                @map("resolution_audit_id")
+  inputTitle          String                @map("input_title")
+  inputDescription    String                @map("input_description")
+  status              IncidentSummaryStatus @default(PENDING)
+  text                String?
+  model               String?
+  attempts            Int                   @default(0)
+  errorCategory       String?               @map("error_category")
+  availableAt         DateTime              @default(now()) @map("available_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt         DateTime?             @map("completed_at") @db.Timestamptz(3)
+  unavailableAt       DateTime?             @map("unavailable_at") @db.Timestamptz(3)
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  incident            Incident              @relation(fields: [organizationId, incidentId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([organizationId, id])
+  @@unique([organizationId, incidentId, lifecycleGeneration])
+  @@index([status, availableAt])
+  @@map("incident_summaries")
 }

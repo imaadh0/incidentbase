@@ -214,6 +214,7 @@ export class IncidentRepository {
         currentEscalationStep: 0,
         escalationExhaustedAt: null,
         escalationGeneration: { increment: 1 },
+        lifecycleGeneration: { increment: 1 },
         firstEscalatedAt: null,
         investigatingAt: null,
         nextEscalationAt: addSeconds(new Date(), firstStep.waitSeconds),
@@ -287,6 +288,25 @@ export class IncidentRepository {
     });
   }
 
+  public summaries(incidentId: string) {
+    return this.transaction.incidentSummary.findMany({
+      where: { organizationId: this.organizationId, incidentId },
+      select: {
+        id: true,
+        incidentId: true,
+        lifecycleGeneration: true,
+        status: true,
+        text: true,
+        model: true,
+        attempts: true,
+        createdAt: true,
+        completedAt: true,
+        unavailableAt: true,
+      },
+      orderBy: { lifecycleGeneration: 'desc' },
+    });
+  }
+
   private async applyCommand(input: {
     action: string;
     actor: IncidentActor;
@@ -338,6 +358,18 @@ export class IncidentRepository {
         organizationId: incident.organizationId,
       },
     });
+    if (action === 'incident.resolved') {
+      await this.transaction.incidentSummary.create({
+        data: {
+          organizationId: incident.organizationId,
+          incidentId: incident.id,
+          lifecycleGeneration: incident.lifecycleGeneration,
+          resolutionAuditId: audit.id,
+          inputTitle: incident.title,
+          inputDescription: incident.description,
+        },
+      });
+    }
     await this.transaction.outboxEvent.create({
       data: {
         aggregateId: incident.id,

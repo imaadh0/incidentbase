@@ -46,6 +46,24 @@ export interface ClaimedNotificationDelivery {
   attempts: number;
 }
 
+export interface ClaimedIncidentSummary {
+  organizationId: string;
+  summaryId: string;
+  incidentId: string;
+  lifecycleGeneration: number;
+  resolutionAuditId: bigint;
+  inputTitle: string;
+  inputDescription: string;
+  attempts: number;
+}
+
+export interface SummaryTimelineEntry {
+  auditId: bigint;
+  action: string;
+  occurredAt: Date;
+  actorName: string;
+}
+
 export class WorkerUnitOfWork {
   public constructor(private readonly client: DatabaseClient) {}
 
@@ -281,5 +299,47 @@ export class WorkerUnitOfWork {
           ? settings.discordWebhookCiphertext
           : null;
     });
+  }
+
+  public claimIncidentSummaries(limit = 25): Promise<ClaimedIncidentSummary[]> {
+    return this.client.$queryRaw`
+      SELECT organization_id AS "organizationId", summary_id AS "summaryId",
+        incident_id AS "incidentId", lifecycle_generation AS "lifecycleGeneration",
+        resolution_audit_id AS "resolutionAuditId", input_title AS "inputTitle",
+        input_description AS "inputDescription", attempts
+      FROM app.worker_claim_incident_summaries(${limit})
+    `;
+  }
+
+  public summaryTimeline(
+    summary: ClaimedIncidentSummary,
+    limit = 80,
+  ): Promise<SummaryTimelineEntry[]> {
+    return this.withOrganization(
+      { organizationId: summary.organizationId },
+      ({ transaction }) =>
+        transaction.$queryRaw`
+        SELECT audit_id AS "auditId", action, occurred_at AS "occurredAt",
+          actor_name AS "actorName"
+        FROM app.worker_summary_timeline(
+          ${summary.organizationId}::UUID, ${summary.incidentId}::UUID,
+          ${summary.resolutionAuditId}::BIGINT, ${limit}
+        )
+      `,
+    );
+  }
+
+  public async finishIncidentSummary(
+    summary: ClaimedIncidentSummary,
+    text: string | null,
+    model: string | null,
+    errorCategory: string | null,
+  ): Promise<void> {
+    await this.client.$queryRaw`
+      SELECT app.worker_finish_incident_summary(
+        ${summary.organizationId}::UUID, ${summary.summaryId}::UUID,
+        ${summary.attempts}, ${text}, ${model}, ${errorCategory}
+      )::text
+    `;
   }
 }

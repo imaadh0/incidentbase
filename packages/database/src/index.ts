@@ -18,6 +18,8 @@ export {
 export {
   WorkerUnitOfWork,
   type ClaimedNotificationDelivery,
+  type ClaimedIncidentSummary,
+  type SummaryTimelineEntry,
   type ClaimedOutboxEvent,
   type RealtimeIncidentDetails,
   type WorkerOrganizationContext,
@@ -54,6 +56,7 @@ export {
 export {
   AuditActorType,
   IncidentSeverity,
+  IncidentSummaryStatus,
   IncidentStatus,
   MembershipStatus,
   OrganizationRole,
@@ -63,6 +66,7 @@ export {
   type EscalationPolicyStep,
   type EscalationPolicyVersion,
   type Incident,
+  type IncidentSummary,
   type Organization,
   type OrganizationInvitation,
   type OrganizationMembership,

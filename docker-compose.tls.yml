@@ -1,0 +1,7 @@
+services:
+  nginx:
+    ports:
+      - '443:443'
+    volumes:
+      - ./infra/nginx/nginx.tls.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro

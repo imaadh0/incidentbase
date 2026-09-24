@@ -53,6 +53,14 @@ The settings, test, and delivery-status endpoints are under `/api/v1/organizatio
 
 Set `GROQ_API_KEY` on the worker to generate summaries after incident resolution. `GROQ_MODEL` defaults to `llama-3.3-70b-versatile`; `GROQ_TIMEOUT_MS` and `SUMMARY_INTERVAL_MS` control request timeout and worker polling. The API returns summary history at `GET /api/v1/organizations/:organizationId/incidents/:incidentId/summaries` for active members. Summary generation never delays resolution. A missing key or two failed attempts leaves a visible `UNAVAILABLE` result, and reopening keeps the previous generation's summary. Provider response bodies and prompt contents are not logged.
 
+## Administration and request limits
+
+Owners and Admins can manage members, policy revisions/defaults, and notification settings in the browser's Administration section. The organization audit explorer at `GET /api/v1/organizations/:organizationId/audit-logs?after=<cursor>&limit=50` is also restricted to active Owners/Admins and returns only public audit fields. Invitation links are one-time credentials: share them privately, and sign in with the invited email address before accepting them.
+
+The API uses Redis sliding windows for sign-in (10/IP/15 minutes), incident creation (10/member/minute), and incident commands (30/member/minute). Responses exceeding a limit are `429` with `Retry-After`. A Redis outage makes sign-in temporarily unavailable (`503`) but does not prevent already-authenticated incident operations. Set `TRUST_PROXY_HOPS` to the number of trusted reverse proxies between the client and API (one for the supplied Nginx Compose layout). Do not expose the API container directly to untrusted networks with this setting.
+
+The API `/health/ready` checks both PostgreSQL and Redis. The worker serves internal liveness, readiness, and token-protected metrics on port 4001; Compose checks its readiness without exposing that port publicly. API metrics include HTTP latency, active sockets, and rate-limit outcomes. Worker metrics include queue depth, failed jobs, successful escalation delay, and aggregate provider outcomes. Set the same `METRICS_TOKEN` on API and worker. Both services export OpenTelemetry traces when `OTEL_ENABLED=true`; provider credentials and incident prompts remain outside logs.
+
 ## Web build output
 
 Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing requires symlink privileges. Container builds set the validated value to `standalone` for a minimal production runtime image.
@@ -63,4 +71,6 @@ The production GitHub environment requires `VPS_HOST`, `VPS_USER`, `VPS_APP_PATH
 
 SSH deployment is disabled until the repository variable `DEPLOY_ENABLED` is explicitly set to `true`. Image builds and publication remain active, allowing CI and GHCR to be verified before VPS credentials are configured.
 
-The current Nginx configuration serves HTTP. Add the production hostname and mounted TLS certificate paths before exposing port 443; certificate issuance remains an operator action because it requires control of DNS and the VPS.
+The deploy workflow runs database/Redis integration tests and a production build before publishing images. It then fast-forwards the VPS checkout, selects images by the exact commit SHA, applies the one-shot migration before starting API/worker, waits for Compose health, and checks the Nginx-routed API readiness and web page. The fast-forward step deliberately fails if the VPS checkout has diverged; reconcile it manually instead of overwriting local deployment changes.
+
+The default Nginx configuration serves HTTP for local development. For production, place a valid certificate chain and private key at `infra/nginx/certs/fullchain.pem` and `infra/nginx/certs/privkey.pem` on the VPS, set `COMPOSE_FILE=docker-compose.yml:docker-compose.tls.yml` in the VPS `.env`, set `WEB_ORIGIN` to the HTTPS origin, and set `COOKIE_SECURE=true`. The TLS override exposes port 443, redirects port 80 to HTTPS, and enables HSTS. Certificate issuance and renewal remain operator actions requiring DNS/VPS control; do not commit those files. Verify the public hostname and certificate after deployment.

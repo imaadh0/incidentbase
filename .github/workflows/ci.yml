@@ -72,11 +72,13 @@ jobs:
           DATABASE_URL: postgresql://incidentbase_app:ci-runtime-password-change-me@127.0.0.1:5432/incidentbase_api_test
           WORKER_DATABASE_URL: postgresql://incidentbase_worker_app:ci-worker-password-change-me@127.0.0.1:5432/incidentbase_database_test
         run: pnpm --filter @incidentbase/database db:provision:runtime
+      - run: pnpm build
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.yml -f docker-compose.tls.yml config --quiet
 
   docker:
     runs-on: ubuntu-latest

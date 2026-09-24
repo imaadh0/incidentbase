@@ -17,6 +17,36 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: incidentbase
+          POSTGRES_USER: incidentbase
+          POSTGRES_PASSWORD: ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U incidentbase -d incidentbase"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-bookworm
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_TEST_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_database_test
+      API_TEST_DATABASE_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_api_test
+      API_TEST_RUNTIME_DATABASE_URL: postgresql://incidentbase_app:ci-runtime-password-change-me@127.0.0.1:5432/incidentbase_api_test
+      API_TEST_WORKER_DATABASE_URL: postgresql://incidentbase_worker_app:ci-worker-password-change-me@127.0.0.1:5432/incidentbase_api_test
+      WORKER_TEST_DATABASE_URL: postgresql://incidentbase_worker_app:ci-worker-password-change-me@127.0.0.1:5432/incidentbase_database_test
+      WORKER_TEST_REDIS_URL: redis://127.0.0.1:6379
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -27,10 +57,33 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Create test databases
+        env:
+          PGPASSWORD: ci-database-password
+        run: |
+          createdb --host 127.0.0.1 --username incidentbase incidentbase_database_test
+          createdb --host 127.0.0.1 --username incidentbase incidentbase_api_test
+      - name: Apply repository test migrations
+        env:
+          DATABASE_MIGRATION_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_database_test
+        run: pnpm --filter @incidentbase/database db:migrate:deploy
+      - name: Apply API test migrations
+        env:
+          DATABASE_MIGRATION_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_api_test
+        run: pnpm --filter @incidentbase/database db:migrate:deploy
+      - name: Provision restricted test roles
+        env:
+          DATABASE_MIGRATION_URL: postgresql://incidentbase:ci-database-password@127.0.0.1:5432/incidentbase_api_test
+          DATABASE_URL: postgresql://incidentbase_app:ci-runtime-password-change-me@127.0.0.1:5432/incidentbase_api_test
+          WORKER_DATABASE_URL: postgresql://incidentbase_worker_app:ci-worker-password-change-me@127.0.0.1:5432/incidentbase_database_test
+        run: pnpm --filter @incidentbase/database db:provision:runtime
+      - run: pnpm build
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: docker compose config --quiet
+      - run: docker compose -f docker-compose.yml -f docker-compose.tls.yml config --quiet
 
   prepare:
     runs-on: ubuntu-latest
@@ -74,7 +127,7 @@ jobs:
 
   deploy:
     if: ${{ vars.DEPLOY_ENABLED == 'true' }}
-    needs: images
+    needs: [images, prepare]
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 10
@@ -93,6 +146,15 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_APP_PATH: ${{ secrets.VPS_APP_PATH }}
+          IMAGE_PREFIX: ${{ needs.prepare.outputs.image-prefix }}
         run: |
           ssh -i ~/.ssh/incidentbase "$VPS_USER@$VPS_HOST" \
-            "cd '$VPS_APP_PATH' && docker compose pull && docker compose up -d"
+            "cd '$VPS_APP_PATH' && git fetch origin main && git merge --ff-only '$GITHUB_SHA' && \
+            WEB_IMAGE='$IMAGE_PREFIX-web:$GITHUB_SHA' API_IMAGE='$IMAGE_PREFIX-api:$GITHUB_SHA' \
+            WORKER_IMAGE='$IMAGE_PREFIX-worker:$GITHUB_SHA' MIGRATE_IMAGE='$IMAGE_PREFIX-migrate:$GITHUB_SHA' \
+            docker compose pull && \
+            WEB_IMAGE='$IMAGE_PREFIX-web:$GITHUB_SHA' API_IMAGE='$IMAGE_PREFIX-api:$GITHUB_SHA' \
+            WORKER_IMAGE='$IMAGE_PREFIX-worker:$GITHUB_SHA' MIGRATE_IMAGE='$IMAGE_PREFIX-migrate:$GITHUB_SHA' \
+            docker compose up -d --no-build --wait --wait-timeout 180 && \
+            curl --fail --silent --show-error http://127.0.0.1/api/v1/health/ready && \
+            curl --fail --silent --show-error http://127.0.0.1/ >/dev/null"

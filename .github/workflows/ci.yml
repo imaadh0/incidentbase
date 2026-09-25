@@ -99,3 +99,37 @@ jobs:
           push: false
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Start full application stack
+        run: docker compose -p incidentbase-e2e -f docker-compose.yml -f docker-compose.e2e.yml up --build -d --wait
+      - name: Run browser acceptance suite
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8080
+        run: pnpm test:e2e
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose -p incidentbase-e2e -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail=150
+      - name: Upload browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          if-no-files-found: ignore
+      - name: Stop application stack
+        if: always()
+        run: docker compose -p incidentbase-e2e -f docker-compose.yml -f docker-compose.e2e.yml down --volumes

@@ -36,4 +36,4 @@ With the Compose stack running, open `http://localhost/` for the public landing 
 
 ## Architecture
 
-See [DECISIONS.md](./DECISIONS.md) for the decisions that shape the system and `docs/` for operational and architectural notes.
+See the [implementation plan](./docs/implementation-plan.md) for the confirmed milestone sequence, [DECISIONS.md](./DECISIONS.md) for the decisions that shape the system, and `docs/` for operational and architectural notes.

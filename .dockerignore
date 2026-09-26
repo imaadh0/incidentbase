@@ -1,5 +1,7 @@
 .git
 .github
+.turbo
+.pnpm-store
 .next
 **/.next
 **/dist
@@ -9,5 +11,6 @@ node_modules
 .env
 .env.*
 *.log
+test-results
+playwright-report
 *.tsbuildinfo
-

@@ -1,23 +1,82 @@
 'use client';
 
+import { PASSWORD_MIN_LENGTH } from '@incidentbase/contracts';
 import { Activity, ArrowRight, CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type FormEvent, type InputHTMLAttributes } from 'react';
+import {
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type FormEvent,
+  type InputHTMLAttributes,
+} from 'react';
 
 import { apiRequest, type Account } from '../lib/api';
 
 type AuthMode = 'login' | 'register';
+type FieldName = 'displayName' | 'organizationName' | 'organizationSlug' | 'email' | 'password';
+type FieldErrors = Partial<Record<FieldName, string>>;
+
+function validateField(name: FieldName, input: HTMLInputElement, mode: AuthMode): string | null {
+  const value = input.value.trim();
+  if (name === 'displayName') {
+    if (!value) return 'Enter your name.';
+    return value.length > 100 ? 'Use 100 characters or fewer.' : null;
+  }
+  if (name === 'organizationName') {
+    if (!value) return 'Enter an organization name.';
+    return value.length > 120 ? 'Use 120 characters or fewer.' : null;
+  }
+  if (name === 'organizationSlug') {
+    if (!value) return 'Enter an organization slug.';
+    return value.length >= 3 && value.length <= 63 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(value)
+      ? null
+      : 'Use 3–63 lowercase letters, numbers, or hyphens. Start and end with a letter or number.';
+  }
+  if (name === 'email') {
+    if (!value) return 'Enter your email address.';
+    if (value.length > 320) return 'Use 320 characters or fewer.';
+    return input.validity.typeMismatch ? 'Enter a valid email address.' : null;
+  }
+  if (!input.value) return 'Enter your password.';
+  if (mode === 'register' && input.value.length < PASSWORD_MIN_LENGTH) {
+    return `Use at least ${PASSWORD_MIN_LENGTH} characters.`;
+  }
+  return input.value.length > 128 ? 'Use 128 characters or fewer.' : null;
+}
 
 export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitting(true);
     setError(null);
-    const fields = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const names: FieldName[] =
+      mode === 'register'
+        ? ['displayName', 'organizationName', 'organizationSlug', 'email', 'password']
+        : ['email', 'password'];
+    const nextErrors: FieldErrors = {};
+    for (const name of names) {
+      const input = form.elements.namedItem(name);
+      if (!(input instanceof HTMLInputElement)) continue;
+      const message = validateField(name, input, mode);
+      if (message) nextErrors[name] = message;
+    }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      const firstInvalidName = names.find((name) => nextErrors[name]);
+      if (firstInvalidName) {
+        const firstInvalid = form.elements.namedItem(firstInvalidName);
+        if (firstInvalid instanceof HTMLInputElement) firstInvalid.focus();
+      }
+      return;
+    }
+    setSubmitting(true);
+    const fields = new FormData(form);
     const body =
       mode === 'login'
         ? { email: fields.get('email'), password: fields.get('password') }
@@ -46,6 +105,27 @@ export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () 
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function fieldValidation(name: FieldName) {
+    return {
+      error: fieldErrors[name],
+      onBlur: (event: FocusEvent<HTMLInputElement>) => {
+        const message = validateField(name, event.currentTarget, mode);
+        setFieldErrors((current) => ({ ...current, [name]: message ?? undefined }));
+      },
+      onChange: (event: ChangeEvent<HTMLInputElement>) => {
+        if (!fieldErrors[name]) return;
+        const message = validateField(name, event.currentTarget, mode);
+        setFieldErrors((current) => ({ ...current, [name]: message ?? undefined }));
+      },
+    };
+  }
+
+  function switchMode(nextMode: AuthMode) {
+    setMode(nextMode);
+    setError(null);
+    setFieldErrors({});
   }
 
   return (
@@ -79,14 +159,14 @@ export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () 
         <div className="auth-tabs" aria-label="Authentication mode">
           <button
             className={mode === 'login' ? 'active' : ''}
-            onClick={() => setMode('login')}
+            onClick={() => switchMode('login')}
             type="button"
           >
             Sign in
           </button>
           <button
             className={mode === 'register' ? 'active' : ''}
-            onClick={() => setMode('register')}
+            onClick={() => switchMode('register')}
             type="button"
           >
             Create workspace
@@ -100,25 +180,43 @@ export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () 
               : 'Create your IncidentBase workspace'}
           </h2>
         </div>
-        <form className="form-stack" onSubmit={(event) => void submit(event)}>
+        <form className="form-stack" noValidate onSubmit={(event) => void submit(event)}>
           {mode === 'register' && (
             <>
-              <Field label="Your name" name="displayName" autoComplete="name" />
+              <Field
+                label="Your name"
+                name="displayName"
+                autoComplete="name"
+                {...fieldValidation('displayName')}
+              />
               <Field
                 label="Organization name"
                 name="organizationName"
                 autoComplete="organization"
+                {...fieldValidation('organizationName')}
               />
-              <Field label="Organization slug" name="organizationSlug" placeholder="acme-cloud" />
+              <Field
+                label="Organization slug"
+                name="organizationSlug"
+                placeholder="acme-cloud"
+                {...fieldValidation('organizationSlug')}
+              />
             </>
           )}
-          <Field label="Email" name="email" type="email" autoComplete="email" />
+          <Field
+            label="Email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            {...fieldValidation('email')}
+          />
           <Field
             label="Password"
             name="password"
             type="password"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            minLength={mode === 'register' ? 12 : 1}
+            hint={mode === 'register' ? `At least ${PASSWORD_MIN_LENGTH} characters.` : undefined}
+            {...fieldValidation('password')}
           />
           {error && (
             <p className="form-error" role="alert">
@@ -138,12 +236,37 @@ export function AuthenticationScreen({ onAuthenticated }: { onAuthenticated: () 
   );
 }
 
-function Field(props: InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) {
-  const { label, ...input } = props;
+function Field(
+  props: InputHTMLAttributes<HTMLInputElement> & {
+    label: string;
+    name: FieldName;
+    error?: string | undefined;
+    hint?: string | undefined;
+  },
+) {
+  const { label, error, hint, ...input } = props;
+  const describedBy = [hint && `${input.name}-hint`, error && `${input.name}-error`]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <label className="field">
-      <span>{label}</span>
-      <input {...input} required />
-    </label>
+    <div className="field">
+      <label htmlFor={input.name}>{label}</label>
+      <input
+        {...input}
+        id={input.name}
+        aria-invalid={Boolean(error)}
+        aria-describedby={describedBy || undefined}
+      />
+      {hint && (
+        <span className="field-hint" id={`${input.name}-hint`}>
+          {hint}
+        </span>
+      )}
+      {error && (
+        <span className="field-error" id={`${input.name}-error`} role="alert">
+          {error}
+        </span>
+      )}
+    </div>
   );
 }

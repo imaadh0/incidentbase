@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(320));
-export const passwordSchema = z.string().min(12).max(128);
+export const PASSWORD_MIN_LENGTH = 8;
+export const passwordSchema = z.string().min(PASSWORD_MIN_LENGTH).max(128);
 export const organizationRoleSchema = z.enum(['OWNER', 'ADMIN', 'RESPONDER', 'REPORTER']);
 export const membershipStatusSchema = z.enum(['INVITED', 'ACTIVE', 'SUSPENDED']);
 

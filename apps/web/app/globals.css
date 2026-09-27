@@ -220,6 +220,17 @@ textarea:focus-visible {
 .field.compact {
   margin-top: 1rem;
 }
+.field-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.field-error {
+  color: #ff9aa4;
+  font-size: 0.72rem;
+}
+.field input[aria-invalid='true'] {
+  border-color: #ff9aa4;
+}
 .form-error {
   margin: 0;
   border: 1px solid rgba(255, 102, 117, 0.28);

@@ -14,6 +14,32 @@ type ApiResult<T> = { status: number; data?: T; error?: { code: string } };
 
 const password = 'Milestone10-password-2026!';
 
+test('registration explains invalid fields inline and accepts a ten-character password', async ({
+  page,
+}) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await page.goto('/sign-in');
+  await page.getByRole('button', { name: 'Create workspace' }).first().click();
+  const form = page.locator('form');
+  await form.getByRole('button', { name: 'Create workspace' }).click();
+  await expect(form.getByText('Enter your name.')).toBeVisible();
+  await expect(form.getByText('Enter your email address.')).toBeVisible();
+  await expect(form.getByText('Enter your password.')).toBeVisible();
+
+  await form.getByLabel('Your name').fill('Short Password Owner');
+  await form.getByLabel('Organization name').fill('Short Password Workspace');
+  await form.getByLabel('Organization slug').fill(`short-${suffix}`);
+  await form.getByLabel('Email').fill(`short-${suffix}@example.test`);
+  await form.getByLabel('Password').fill('1234567');
+  await form.getByRole('button', { name: 'Create workspace' }).click();
+  await expect(form.getByText('Use at least 8 characters.')).toBeVisible();
+
+  await form.getByLabel('Password').fill('1234567890');
+  await expect(form.getByText('Use at least 8 characters.')).toHaveCount(0);
+  await form.getByRole('button', { name: 'Create workspace' }).click();
+  await expect(page).toHaveURL(/\/app$/);
+});
+
 async function api<T>(
   page: Page,
   path: string,

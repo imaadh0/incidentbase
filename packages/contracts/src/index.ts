@@ -10,6 +10,7 @@ export {
 } from './realtime.js';
 export type { RealtimeIncidentEvent } from './realtime.js';
 export {
+  PASSWORD_MIN_LENGTH,
   emailSchema,
   invitationRequestSchema,
   loginRequestSchema,

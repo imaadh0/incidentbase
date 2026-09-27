@@ -39,7 +39,7 @@ export default function LandingPage() {
             <h1>Keep the response moving.</h1>
             <p className="hero-description">
               When something breaks, everyone should know what happened, who owns the next step, and
-              what changed. IncidentBase gives your team a clear place to respond.
+              what changed. IncidentBase gives your team one clear place to respond.
             </p>
             <div className="hero-actions">
               <Link className="hero-primary" href="/sign-in">

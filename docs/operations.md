@@ -67,11 +67,11 @@ Local Windows builds use `NEXT_OUTPUT_MODE=default` because standalone tracing r
 
 ## Deployment prerequisites
 
-The production GitHub environment requires `VPS_HOST`, `VPS_USER`, `VPS_APP_PATH`, `VPS_SSH_KEY`, and a pinned `VPS_KNOWN_HOSTS` entry. The VPS keeps its own Compose environment file and must already be authenticated to GHCR when images are private.
+The production GitHub environment requires `VPS_HOST`, `VPS_USER`, `VPS_APP_PATH`, `VPS_SSH_KEY`, and a pinned `VPS_KNOWN_HOSTS` entry. Use a dedicated deployment key for Actions. The VPS keeps its own Compose environment file. Each deployment passes its short-lived `GITHUB_TOKEN` over SSH stdin to `docker login` in a temporary Docker configuration, so private GHCR packages can be pulled without a persistent registry token on the VPS.
 
-SSH deployment is disabled until the repository variable `DEPLOY_ENABLED` is explicitly set to `true`. Image builds and publication remain active, allowing CI and GHCR to be verified before VPS credentials are configured.
+SSH deployment runs when the repository variable `DEPLOY_ENABLED` is `true`.
 
-The deploy workflow runs database/Redis integration tests and a production build before publishing images. It then fast-forwards the VPS checkout, selects images by the exact commit SHA, applies the one-shot migration before starting API/worker, waits for Compose health, and checks the Nginx-routed API readiness and web page. The fast-forward step deliberately fails if the VPS checkout has diverged; reconcile it manually instead of overwriting local deployment changes.
+The deploy workflow runs database/Redis integration tests and a production build before publishing images. It then fast-forwards the VPS checkout, pulls GHCR images by the exact commit SHA, applies the one-shot migration before starting API/worker, waits for Compose health, checks the public HTTPS API readiness and web page, and records those image tags in the VPS `.env`. The fast-forward step deliberately fails if the VPS checkout has diverged; reconcile it manually instead of overwriting local deployment changes.
 
 The default Nginx configuration serves HTTP for local development. For production, place a valid certificate chain and private key at `infra/nginx/certs/fullchain.pem` and `infra/nginx/certs/privkey.pem` on the VPS, set `COMPOSE_FILE=docker-compose.yml:docker-compose.tls.yml` in the VPS `.env`, set `WEB_ORIGIN` to the HTTPS origin, and set `COOKIE_SECURE=true`. The TLS override exposes port 443, redirects port 80 to HTTPS, and enables HSTS. Certificate issuance and renewal remain operator actions requiring DNS/VPS control; do not commit those files. Verify the public hostname and certificate after deployment.
 

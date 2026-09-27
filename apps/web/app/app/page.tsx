@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   Activity,
   ArrowRight,
-  ChevronDown,
   CircleDot,
   LogOut,
   Plus,
@@ -45,6 +44,8 @@ import {
 } from '../../lib/api';
 import { IncidentDashboard } from '../../components/incident-dashboard';
 import { AdministrationPanel } from '../../components/administration-panel';
+import { MobileMenu } from '../../components/mobile-menu';
+import { SelectControl } from '../../components/select-control';
 import { ThemeToggle } from '../../components/theme-toggle';
 
 export default function IncidentBasePage() {
@@ -324,80 +325,123 @@ function Sidebar(props: {
   onLogout: () => void;
 }) {
   const current = props.memberships.find((item) => item.organizationId === props.organizationId);
-  return (
-    <aside className="sidebar">
-      <div className="brand">
-        <span className="brand-mark">
-          <Activity size={20} />
-        </span>
-        <span>IncidentBase</span>
-      </div>
-      <label className="organization-switcher">
-        <span className="organization-avatar">
-          {initials(current?.organizationName ?? 'Organization')}
-        </span>
-        <span className="organization-copy">
-          <strong>{current?.organizationName ?? 'Select organization'}</strong>
-          <small>{current?.role ?? 'No active membership'}</small>
-        </span>
-        <ChevronDown size={16} />
-        <select
-          aria-label="Organization"
-          value={props.organizationId}
-          onChange={(event) => props.onOrganizationChange(event.target.value)}
-        >
-          {props.memberships.map((item) => (
-            <option key={item.organizationId} value={item.organizationId}>
-              {item.organizationName}
-            </option>
-          ))}
-        </select>
-      </label>
-      <nav>
-        <p className="nav-label">Main</p>
+  const organizationSwitcher = (close?: () => void) => (
+    <SelectControl
+      label="Organization"
+      className="organization-switcher"
+      value={props.organizationId}
+      onValueChange={(id) => {
+        props.onOrganizationChange(id);
+        close?.();
+      }}
+      options={props.memberships.map((item) => ({
+        value: item.organizationId,
+        label: item.organizationName,
+      }))}
+      triggerContent={
+        <>
+          <span className="organization-avatar">
+            {initials(current?.organizationName ?? 'Organization')}
+          </span>
+          <span className="organization-copy">
+            <strong>{current?.organizationName ?? 'Select organization'}</strong>
+            <small>{current?.role ?? 'No active membership'}</small>
+          </span>
+        </>
+      }
+    />
+  );
+  const navigation = (close?: () => void) => (
+    <nav aria-label="Workspace navigation">
+      <p className="nav-label">Main</p>
+      <button
+        className={`nav-link${props.view === 'overview' ? ' active' : ''}`}
+        onClick={() => {
+          props.onViewChange('overview');
+          close?.();
+        }}
+        type="button"
+      >
+        <Activity size={18} /> Overview
+      </button>
+      <button
+        className="nav-link"
+        onClick={() => {
+          props.onViewChange('overview');
+          close?.();
+          window.setTimeout(() => document.getElementById('incidents')?.scrollIntoView(), 0);
+        }}
+        type="button"
+      >
+        <Siren size={18} /> Incidents
+      </button>
+      {props.canAdminister && (
         <button
-          className={`nav-link${props.view === 'overview' ? ' active' : ''}`}
-          onClick={() => props.onViewChange('overview')}
+          className={`nav-link${props.view === 'administration' ? ' active' : ''}`}
+          onClick={() => {
+            props.onViewChange('administration');
+            close?.();
+          }}
           type="button"
         >
-          <Activity size={18} />
-          Overview
+          <Settings2 size={18} /> Administration
         </button>
-        <button className="nav-link" onClick={() => props.onViewChange('overview')} type="button">
-          <Siren size={18} />
-          Incidents
-        </button>
-        {props.canAdminister && (
-          <button
-            className={`nav-link${props.view === 'administration' ? ' active' : ''}`}
-            onClick={() => props.onViewChange('administration')}
-            type="button"
-          >
-            <Settings2 size={18} /> Administration
-          </button>
-        )}
-        <p className="nav-label secondary">Explore</p>
-        <Link className="nav-link" href="/demo">
-          <CircleDot size={18} />
-          View demo
-        </Link>
-        <Link className="nav-link" href="/">
-          <ArrowRight size={18} />
-          Home
-        </Link>
-      </nav>
-      <div className="sidebar-footer">
-        <div className="user-card">
-          <span className="user-avatar">{initials(props.account.user.displayName)}</span>
-          <span>
-            <strong>{props.account.user.displayName}</strong>
-            <small>{props.account.user.email}</small>
-          </span>
+      )}
+      <p className="nav-label secondary">Explore</p>
+      <Link className="nav-link" href="/demo" {...(close ? { onClick: close } : {})}>
+        <CircleDot size={18} /> View demo
+      </Link>
+      <Link className="nav-link" href="/" {...(close ? { onClick: close } : {})}>
+        <ArrowRight size={18} /> Home
+      </Link>
+    </nav>
+  );
+  const footer = (close?: () => void) => (
+    <div className="sidebar-footer">
+      <div className="user-card">
+        <span className="user-avatar">{initials(props.account.user.displayName)}</span>
+        <span>
+          <strong>{props.account.user.displayName}</strong>
+          <small>{props.account.user.email}</small>
+        </span>
+      </div>
+      <button
+        className="nav-link logout"
+        onClick={() => {
+          close?.();
+          props.onLogout();
+        }}
+        type="button"
+      >
+        <LogOut size={18} /> Sign out
+      </button>
+    </div>
+  );
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-content">
+        <div className="sidebar-heading">
+          <div className="brand">
+            <span className="brand-mark">
+              <Activity size={20} />
+            </span>
+            <span>IncidentBase</span>
+          </div>
+          <MobileMenu title="Workspace menu">
+            {(close) => (
+              <div className="mobile-menu-body">
+                {organizationSwitcher(close)}
+                {navigation(close)}
+                {footer(close)}
+              </div>
+            )}
+          </MobileMenu>
         </div>
-        <button className="nav-link logout" onClick={props.onLogout} type="button">
-          <LogOut size={18} />
-          Sign out
-        </button>
+        <div className="sidebar-desktop-body">
+          {organizationSwitcher()}
+          {navigation()}
+          {footer()}
+        </div>
       </div>
     </aside>
   );
@@ -452,15 +496,18 @@ function CreateIncident(props: {
         <h2 id="create-title">Start the response</h2>
         <form className="form-stack" onSubmit={(event) => void submit(event)}>
           <Field label="Title" name="title" maxLength={200} autoFocus />
-          <label className="field">
+          <div className="field">
             <span>Severity</span>
-            <select name="severity" defaultValue="SEV2">
-              <option>SEV1</option>
-              <option>SEV2</option>
-              <option>SEV3</option>
-              <option>SEV4</option>
-            </select>
-          </label>
+            <SelectControl
+              label="Severity"
+              name="severity"
+              defaultValue="SEV2"
+              options={(['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const).map((severity) => ({
+                value: severity,
+                label: severity,
+              }))}
+            />
+          </div>
           <label className="field">
             <span>Description</span>
             <textarea name="description" rows={6} required maxLength={10000} />
@@ -614,23 +661,21 @@ function IncidentDetail(props: {
           ) : null}
         </div>
         {administrative && incident.status !== 'RESOLVED' ? (
-          <label className="field compact">
+          <div className="field compact">
             <span>Reassign responder</span>
-            <select
+            <SelectControl
+              label="Reassign responder"
+              placeholder="Select responder"
               defaultValue=""
-              onChange={(event) => {
-                if (event.target.value !== '')
-                  void command('reassign', { membershipId: event.target.value });
+              onValueChange={(value) => {
+                if (value !== '') void command('reassign', { membershipId: value });
               }}
-            >
-              <option value="">Select responder</option>
-              {responders.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={responders.map((member) => ({
+                value: member.id,
+                label: member.displayName,
+              }))}
+            />
+          </div>
         ) : null}
         <section className="timeline">
           <div className="section-heading">

@@ -40,6 +40,44 @@ test('registration explains invalid fields inline and accepts a ten-character pa
   await expect(page).toHaveURL(/\/app$/);
 });
 
+test('mobile navigation and incident severity select remain usable', async ({ page }) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await register(page, 'Mobile Owner', `mobile-${suffix}@example.test`, `mobile-${suffix}`);
+  await page.setViewportSize({ width: 375, height: 780 });
+
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  const menu = page.getByRole('dialog', { name: 'Workspace menu' });
+  await expect(menu.getByRole('button', { name: 'Administration' })).toBeVisible();
+  await menu.getByRole('button', { name: 'Administration' }).click();
+  await expect(page.getByRole('heading', { name: 'Organization settings' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page
+    .getByRole('dialog', { name: 'Workspace menu' })
+    .getByRole('button', { name: 'Overview' })
+    .click();
+  await page.getByRole('button', { name: 'New incident' }).click();
+  const form = page.getByRole('dialog', { name: 'Start the response' }).locator('form');
+  await form.getByRole('combobox', { name: 'Severity' }).click();
+  await page.getByRole('option', { name: 'SEV1' }).click();
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get('severity')),
+  ).toBe('SEV1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(
+    0,
+  );
+});
+
+test('demo sidebar background continues to the bottom of long pages', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 480 });
+  await page.goto('/demo');
+  const shell = await page.locator('.app-shell').boundingBox();
+  const sidebar = await page.locator('.sidebar').boundingBox();
+  expect(shell).not.toBeNull();
+  expect(sidebar).not.toBeNull();
+  expect(Math.abs(shell!.y + shell!.height - sidebar!.y - sidebar!.height)).toBeLessThan(2);
+});
+
 async function api<T>(
   page: Page,
   path: string,
@@ -91,7 +129,8 @@ async function invite(owner: Page, email: string) {
     .locator('form')
     .filter({ has: owner.getByRole('button', { name: 'Create invitation' }) });
   await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Role').selectOption('RESPONDER');
+  await form.getByRole('combobox', { name: 'Role' }).click();
+  await owner.getByRole('option', { name: 'Responder' }).click();
   await form.getByRole('button', { name: 'Create invitation' }).click();
   const link = owner.locator('.invitation-link code');
   await expect(link).toContainText('/sign-in?invitation=');
@@ -152,10 +191,12 @@ test('onboarding through resolution, with tenant denial and reconnect recovery',
     .locator('form')
     .filter({ has: page.getByRole('button', { name: 'Create policy' }) });
   await policyForm.getByLabel('Name').fill(`Acceptance policy ${suffix}`);
-  await policyForm.getByLabel('Responder').first().selectOption(firstMembership.membershipId);
+  await policyForm.getByRole('combobox', { name: 'Responder' }).first().click();
+  await page.getByRole('option', { name: 'First Responder' }).click();
   await policyForm.getByLabel('Escalate after (seconds)').first().fill('15');
   await policyForm.getByRole('button', { name: 'Add escalation step' }).click();
-  await policyForm.getByLabel('Responder').nth(1).selectOption(secondMembership.membershipId);
+  await policyForm.getByRole('combobox', { name: 'Responder' }).nth(1).click();
+  await page.getByRole('option', { name: 'Second Responder' }).click();
   await policyForm.getByLabel('Escalate after (seconds)').nth(1).fill('2');
   await policyForm.getByLabel('Make this the default policy').check();
   await policyForm.getByRole('button', { name: 'Create policy' }).click();
@@ -208,7 +249,8 @@ test('onboarding through resolution, with tenant denial and reconnect recovery',
     timeout: 15_000,
   });
 
-  await second.page.getByLabel('Organization').selectOption(owner.organizationId);
+  await second.page.getByRole('combobox', { name: 'Organization' }).click();
+  await second.page.getByRole('option', { name: 'Acceptance Owner workspace' }).click();
   await second.page.getByRole('button', { name: new RegExp(title) }).click();
   const detail = second.page.getByRole('dialog', { name: /Incident INC-/ });
   await detail.getByRole('button', { name: 'Acknowledge' }).click();

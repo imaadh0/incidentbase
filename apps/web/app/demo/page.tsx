@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { IncidentDashboard, SeverityBadge, StatusBadge } from '../../components/incident-dashboard';
+import { MobileMenu } from '../../components/mobile-menu';
 import { ThemeToggle } from '../../components/theme-toggle';
 import type { Incident } from '../../lib/api';
 import { demoIncidents, demoMembers, demoTimelineFor } from '../../lib/demo-data';
@@ -21,47 +22,66 @@ export default function DemoPage() {
     window.addEventListener('keydown', dismiss);
     return () => window.removeEventListener('keydown', dismiss);
   }, [selected]);
+  const navigation = (close?: () => void) => (
+    <nav aria-label="Demo navigation">
+      <p className="nav-label">Main</p>
+      <a className="nav-link active" href="#top" {...(close ? { onClick: close } : {})}>
+        <Activity size={18} /> Overview
+      </a>
+      <a className="nav-link" href="#incidents" {...(close ? { onClick: close } : {})}>
+        <Siren size={18} /> Incidents
+      </a>
+      <p className="nav-label secondary">Explore</p>
+      <Link className="nav-link" href="/" {...(close ? { onClick: close } : {})}>
+        <ArrowLeft size={18} /> Home
+      </Link>
+    </nav>
+  );
+  const footer = (close?: () => void) => (
+    <div className="sidebar-footer">
+      <div className="demo-sidebar-note">
+        <CircleDot size={17} /> Read-only sample data
+      </div>
+      <Link className="nav-link" href="/sign-in" {...(close ? { onClick: close } : {})}>
+        <ArrowRight size={18} /> Sign in
+      </Link>
+    </div>
+  );
+  const workspace = () => (
+    <div className="demo-workspace">
+      <span className="organization-avatar">AO</span>
+      <span>
+        <strong>Atlas Operations</strong>
+        <small>Sample workspace</small>
+      </span>
+    </div>
+  );
   return (
     <div className="app-shell demo-shell" id="top">
       <aside className="sidebar demo-sidebar">
-        <Link className="brand" href="/">
-          <span className="brand-mark brand-square">
-            <span className="logo-glyph" />
-          </span>
-          <span>IncidentBase</span>
-        </Link>
-        <div className="demo-workspace">
-          <span className="organization-avatar">AO</span>
-          <span>
-            <strong>Atlas Operations</strong>
-            <small>Sample workspace</small>
-          </span>
-        </div>
-        <nav aria-label="Demo navigation">
-          <p className="nav-label">Main</p>
-          <a className="nav-link active" href="#top">
-            <Activity size={18} />
-            Overview
-          </a>
-          <a className="nav-link" href="#incidents">
-            <Siren size={18} />
-            Incidents
-          </a>
-          <p className="nav-label secondary">Explore</p>
-          <Link className="nav-link" href="/">
-            <ArrowLeft size={18} />
-            Home
-          </Link>
-        </nav>
-        <div className="sidebar-footer">
-          <div className="demo-sidebar-note">
-            <CircleDot size={17} />
-            Read-only sample data
+        <div className="sidebar-content">
+          <div className="sidebar-heading">
+            <Link className="brand" href="/">
+              <span className="brand-mark brand-square">
+                <span className="logo-glyph" />
+              </span>
+              <span>IncidentBase</span>
+            </Link>
+            <MobileMenu title="Demo menu">
+              {(close) => (
+                <div className="mobile-menu-body">
+                  {workspace()}
+                  {navigation(close)}
+                  {footer(close)}
+                </div>
+              )}
+            </MobileMenu>
           </div>
-          <Link className="nav-link" href="/sign-in">
-            <ArrowRight size={18} />
-            Sign in
-          </Link>
+          <div className="sidebar-desktop-body">
+            {workspace()}
+            {navigation()}
+            {footer()}
+          </div>
         </div>
       </aside>
       <main className="main-content">

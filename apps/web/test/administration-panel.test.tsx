@@ -2,7 +2,7 @@ import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { AdministrationPanel } from '../components/administration-panel';
+import { AdministrationPanel, availableMemberRoles } from '../components/administration-panel';
 import type { Member } from '../lib/api';
 
 const members: Member[] = [
@@ -37,9 +37,7 @@ describe('administration panel', () => {
       );
     expect(render('OWNER')).toContain('Ada Owner');
     expect(render('OWNER')).toContain('Invite a teammate');
-    expect(render('OWNER')).toContain('<option value="OWNER">Owner</option>');
-    expect(render('ADMIN').split('name="role"')[1]?.split('</select>')[0]).not.toContain(
-      '<option value="OWNER">Owner</option>',
-    );
+    expect(availableMemberRoles('OWNER', 'RESPONDER')).toContain('OWNER');
+    expect(availableMemberRoles('ADMIN', 'RESPONDER')).not.toContain('OWNER');
   });
 });

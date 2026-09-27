@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, Bell, BookOpen, RefreshCw, Settings2, Users } from 'lucide-react';
 
 import { apiRequest, type Member, type Role } from '../lib/api';
+import { SelectControl } from './select-control';
 
 type Section = 'members' | 'policies' | 'notifications' | 'audit';
 type PolicyStep = { responderMembershipId: string; waitSeconds: number };
@@ -31,6 +32,12 @@ type AuditEntry = {
   incidentId: string | null;
   createdAt: string;
 };
+
+export function availableMemberRoles(actorRole: Role, memberRole: Role): Role[] {
+  return (['OWNER', 'ADMIN', 'RESPONDER', 'REPORTER'] as const).filter(
+    (role) => role !== 'OWNER' || actorRole === 'OWNER' || memberRole === 'OWNER',
+  );
+}
 
 export function AdministrationPanel(props: {
   organizationId: string;
@@ -230,30 +237,24 @@ export function AdministrationPanel(props: {
                     <small>{member.status}</small>
                   </div>
                   <div className="admin-row-actions">
-                    <select
-                      aria-label={`Role for ${member.displayName}`}
+                    <SelectControl
+                      label={`Role for ${member.displayName}`}
+                      className="admin-role-select"
                       value={member.role}
                       disabled={busy || (member.role === 'OWNER' && props.role !== 'OWNER')}
-                      onChange={(event) =>
+                      onValueChange={(role) =>
                         void mutate(async () => {
                           await apiRequest(`${prefix}/members/${member.id}`, {
                             method: 'PATCH',
-                            body: JSON.stringify({ role: event.target.value }),
+                            body: JSON.stringify({ role }),
                           });
                         }, 'Member role updated.')
                       }
-                    >
-                      {(['OWNER', 'ADMIN', 'RESPONDER', 'REPORTER'] as const)
-                        .filter(
-                          (role) =>
-                            role !== 'OWNER' || props.role === 'OWNER' || member.role === 'OWNER',
-                        )
-                        .map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                    </select>
+                      options={availableMemberRoles(props.role, member.role).map((role) => ({
+                        value: role,
+                        label: role,
+                      }))}
+                    />
                     <button
                       type="button"
                       disabled={busy || (member.role === 'OWNER' && props.role !== 'OWNER')}
@@ -300,15 +301,20 @@ export function AdministrationPanel(props: {
                 <span>Email</span>
                 <input name="email" type="email" required />
               </label>
-              <label className="field">
+              <div className="field">
                 <span>Role</span>
-                <select name="role" defaultValue="RESPONDER">
-                  <option value="RESPONDER">Responder</option>
-                  <option value="REPORTER">Reporter</option>
-                  <option value="ADMIN">Admin</option>
-                  {props.role === 'OWNER' && <option value="OWNER">Owner</option>}
-                </select>
-              </label>
+                <SelectControl
+                  label="Role"
+                  name="role"
+                  defaultValue="RESPONDER"
+                  options={[
+                    { value: 'RESPONDER', label: 'Responder' },
+                    { value: 'REPORTER', label: 'Reporter' },
+                    { value: 'ADMIN', label: 'Admin' },
+                    ...(props.role === 'OWNER' ? [{ value: 'OWNER', label: 'Owner' }] : []),
+                  ]}
+                />
+              </div>
               <button className="primary-button" type="submit" disabled={busy}>
                 Create invitation <ArrowRight size={16} />
               </button>
@@ -437,29 +443,26 @@ export function AdministrationPanel(props: {
               {draftSteps.map((step, index) => (
                 <div className="admin-policy-step" key={index}>
                   <strong>Step {index + 1}</strong>
-                  <label className="field">
+                  <div className="field">
                     <span>Responder</span>
-                    <select
+                    <SelectControl
+                      label="Responder"
+                      placeholder="Select responder"
                       required
                       value={step.responderMembershipId}
-                      onChange={(event) =>
+                      onValueChange={(value) =>
                         setDraftSteps((current) =>
                           current.map((item, position) =>
-                            position === index
-                              ? { ...item, responderMembershipId: event.target.value }
-                              : item,
+                            position === index ? { ...item, responderMembershipId: value } : item,
                           ),
                         )
                       }
-                    >
-                      <option value="">Select responder</option>
-                      {responders.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      options={responders.map((member) => ({
+                        value: member.id,
+                        label: member.displayName,
+                      }))}
+                    />
+                  </div>
                   <label className="field">
                     <span>Escalate after (seconds)</span>
                     <input

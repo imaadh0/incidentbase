@@ -228,14 +228,18 @@ export function IncidentDashboard({
                         </span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Severity">
                       <SeverityBadge severity={incident.severity} />
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <StatusBadge status={incident.status} />
                     </td>
-                    <td>{memberById.get(incident.assignedMembershipId) ?? 'Responder'}</td>
-                    <td>{sample ? 'Sample' : new Date(incident.updatedAt).toLocaleDateString()}</td>
+                    <td data-label="Responder">
+                      {memberById.get(incident.assignedMembershipId) ?? 'Responder'}
+                    </td>
+                    <td data-label="Updated">
+                      {sample ? 'Sample' : new Date(incident.updatedAt).toLocaleDateString()}
+                    </td>
                   </tr>
                 ))}
               </tbody>

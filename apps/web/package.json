@@ -14,6 +14,8 @@
   "dependencies": {
     "@incidentbase/config": "workspace:*",
     "@incidentbase/contracts": "workspace:*",
+    "@radix-ui/react-dialog": "1.1.23",
+    "@radix-ui/react-select": "2.3.7",
     "lucide-react": "^0.542.0",
     "next": "^15.5.2",
     "react": "^19.1.1",

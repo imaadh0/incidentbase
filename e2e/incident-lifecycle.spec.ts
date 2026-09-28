@@ -168,6 +168,7 @@ async function invite(owner: Page, email: string) {
 
 async function acceptInvitation(page: Page, link: string, email: string) {
   await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto(link);
   const form = page.locator('form');
   await form.getByLabel('Email').fill(email);

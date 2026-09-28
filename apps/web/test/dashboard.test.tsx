@@ -36,6 +36,28 @@ describe('incident dashboard', () => {
     expect(markup).not.toContain('Create incident');
   });
 
+  it('shows only the five most recently updated incidents on overview', () => {
+    const incidents = Array.from({ length: 7 }, (_, index) => ({
+      ...demoIncidents[0]!,
+      id: `incident-${index}`,
+      referenceNumber: index + 1,
+      title: `Incident ${index}`,
+      updatedAt: new Date(2026, 0, index + 1).toISOString(),
+    }));
+    const markup = renderToStaticMarkup(
+      <IncidentDashboard
+        incidents={incidents}
+        members={demoMembers}
+        organizationName="Test"
+        mode="overview"
+      />,
+    );
+    expect(markup).toContain('View all incidents');
+    expect(markup).toContain('Incident 6');
+    expect(markup).not.toContain('Incident 0');
+    expect(markup).not.toContain('Search incidents');
+  });
+
   it('keeps sample timelines consistent with each incident status', () => {
     expect(demoTimelineFor(demoIncidents[1]!).map((entry) => entry.action)).toEqual([
       'incident.created',

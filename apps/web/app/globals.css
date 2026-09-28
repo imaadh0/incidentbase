@@ -2508,6 +2508,7 @@ button.incident-link:hover span {
 }
 .admin-row .admin-row-actions {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem;
@@ -2524,6 +2525,7 @@ button.incident-link:hover span {
 }
 .admin-check {
   display: flex;
+  min-height: 2.1rem;
   align-items: center;
   gap: 0.5rem;
   color: var(--muted);
@@ -2552,6 +2554,27 @@ button.incident-link:hover span {
   border-radius: 0.5rem;
   padding: 0.75rem;
 }
+.queue-heading-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.admin-card > .form-stack + .admin-secondary {
+  margin-top: 1rem;
+}
+.admin-card .form-stack > .primary-button {
+  margin-top: 0.4rem;
+}
+@media (max-width: 75rem) {
+  .admin-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .admin-row .admin-row-actions {
+    justify-content: flex-start;
+  }
+}
 @media (max-width: 900px) {
   .admin-grid {
     grid-template-columns: 1fr;
@@ -2559,6 +2582,9 @@ button.incident-link:hover span {
 }
 
 /* Full-height workspace rail and responsive navigation. */
+html {
+  scrollbar-gutter: stable;
+}
 .app-shell {
   align-items: stretch;
 }
@@ -2591,10 +2617,12 @@ button.incident-link:hover span {
 }
 .sidebar-desktop-body {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 .sidebar-desktop-body::-webkit-scrollbar {
   width: 0.35rem;
@@ -2721,7 +2749,8 @@ button.incident-link:hover span {
 }
 .select-content {
   z-index: 150;
-  width: var(--radix-select-trigger-width);
+  width: max(var(--radix-select-trigger-width), 10rem);
+  max-width: calc(100vw - 1.5rem);
   max-height: min(19rem, var(--radix-select-content-available-height));
   overflow: hidden;
   border: 1px solid var(--border);
@@ -2743,6 +2772,7 @@ button.incident-link:hover span {
   outline: none;
   font-size: 0.8rem;
   cursor: pointer;
+  white-space: nowrap;
 }
 .select-item[data-highlighted] {
   background: var(--raised);
@@ -2763,6 +2793,7 @@ button.incident-link:hover span {
 }
 .select-trigger.organization-switcher {
   display: grid;
+  width: calc(100% - 0.4rem);
   min-height: 4.1rem;
   grid-template-columns: auto minmax(0, 1fr) auto;
   margin: 2.3rem 0.2rem 1.8rem;
@@ -2771,6 +2802,7 @@ button.incident-link:hover span {
 }
 .select-trigger.admin-role-select {
   width: auto;
+  min-width: 7.5rem;
   min-height: 2rem;
   padding: 0.35rem 0.5rem;
   font-size: 0.75rem;
@@ -2797,6 +2829,7 @@ button.incident-link:hover span {
     padding-left: clamp(0.85rem, 3vw, 1.35rem);
   }
   .mobile-menu-body .select-trigger.organization-switcher {
+    width: 100%;
     margin: 1.2rem 0 0.8rem;
   }
 }
@@ -2822,11 +2855,11 @@ button.incident-link:hover span {
     width: 100%;
   }
   .admin-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .admin-tabs button {
-    flex: 0 0 auto;
+    min-width: 0;
   }
   .admin-row {
     align-items: flex-start;

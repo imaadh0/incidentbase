@@ -47,25 +47,50 @@ test('mobile navigation and incident severity select remain usable', async ({ pa
 
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   const menu = page.getByRole('dialog', { name: 'Workspace menu' });
-  await expect(menu.getByRole('button', { name: 'Administration' })).toBeVisible();
-  await menu.getByRole('button', { name: 'Administration' }).click();
+  await expect(menu.getByRole('link', { name: 'Administration' })).toBeVisible();
+  await menu.getByRole('link', { name: 'Administration' }).click();
+  await expect(page).toHaveURL(/\/app\/administration$/);
   await expect(page.getByRole('heading', { name: 'Organization settings' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Open navigation menu' }).click();
   await page
     .getByRole('dialog', { name: 'Workspace menu' })
-    .getByRole('button', { name: 'Overview' })
+    .getByRole('link', { name: 'Overview' })
     .click();
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole('link', { name: 'View all incidents' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Home' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await page
+    .getByRole('dialog', { name: 'Workspace menu' })
+    .getByRole('link', { name: 'Incidents' })
+    .click();
+  await expect(page).toHaveURL(/\/app\/incidents$/);
+  await expect(page.getByRole('link', { name: 'Incidents' }).first()).toHaveClass(/active/);
+  await expect(page.getByRole('heading', { name: 'Incident queue' })).toBeVisible();
   await page.getByRole('button', { name: 'New incident' }).click();
   const form = page.getByRole('dialog', { name: 'Start the response' }).locator('form');
+  const beforeSelect = await page.evaluate(() => ({
+    x: window.scrollX,
+    y: window.scrollY,
+    width: document.documentElement.clientWidth,
+  }));
   await form.getByRole('combobox', { name: 'Severity' }).click();
+  const afterSelect = await page.evaluate(() => ({
+    x: window.scrollX,
+    y: window.scrollY,
+    width: document.documentElement.clientWidth,
+  }));
+  expect(afterSelect).toEqual(beforeSelect);
   await page.getByRole('option', { name: 'SEV1' }).click();
   expect(
     await form.evaluate((element) => new FormData(element as HTMLFormElement).get('severity')),
   ).toBe('SEV1');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(
-    0,
-  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
 });
 
 test('demo sidebar background continues to the bottom of long pages', async ({ page }) => {
@@ -124,7 +149,7 @@ async function register(page: Page, name: string, email: string, slug: string) {
 }
 
 async function invite(owner: Page, email: string) {
-  await owner.getByRole('button', { name: 'Administration' }).click();
+  await owner.getByRole('link', { name: 'Administration' }).click();
   const form = owner
     .locator('form')
     .filter({ has: owner.getByRole('button', { name: 'Create invitation' }) });
@@ -185,7 +210,7 @@ test('onboarding through resolution, with tenant denial and reconnect recovery',
   expect((await api(page, `/organizations/${first.ownOrganizationId}/incidents`)).status).toBe(404);
 
   await page.reload();
-  await page.getByRole('button', { name: 'Administration' }).click();
+  await page.getByRole('link', { name: 'Administration' }).click();
   await page.getByRole('tab', { name: 'Policies' }).click();
   const policyForm = page
     .locator('form')
@@ -202,7 +227,7 @@ test('onboarding through resolution, with tenant denial and reconnect recovery',
   await policyForm.getByRole('button', { name: 'Create policy' }).click();
   await expect(page.getByRole('status')).toContainText('Policy created.');
 
-  await page.getByRole('button', { name: 'Overview' }).click();
+  await page.getByRole('link', { name: 'Overview' }).click();
   await page.getByRole('button', { name: 'New incident' }).click();
   const title = `Acceptance incident ${suffix}`;
   const create = page.getByRole('dialog', { name: 'Start the response' });

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 
 import { ArrowUpRight, CircleDot, Clock3, Search, Siren } from 'lucide-react';
 
@@ -18,6 +19,7 @@ type Props = {
   busy?: boolean;
   sample?: boolean;
   preview?: boolean;
+  mode?: 'overview' | 'incidents' | 'all';
 };
 
 export function IncidentDashboard({
@@ -32,6 +34,7 @@ export function IncidentDashboard({
   busy = false,
   sample = false,
   preview = false,
+  mode = 'all',
 }: Props) {
   const active = incidents.filter((incident) => incident.status !== 'RESOLVED');
   const filtered = incidents.filter((incident) =>
@@ -39,6 +42,16 @@ export function IncidentDashboard({
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
+  const displayed =
+    mode === 'overview'
+      ? [...incidents]
+          .sort((left, right) =>
+            right.updatedAt === left.updatedAt
+              ? right.id.localeCompare(left.id)
+              : right.updatedAt.localeCompare(left.updatedAt),
+          )
+          .slice(0, 5)
+      : filtered;
   const memberById = new Map(members.map((member) => [member.id, member.displayName]));
   const severityCounts = (['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const).map(
     (severity) => active.filter((incident) => incident.severity === severity).length,
@@ -71,94 +84,98 @@ export function IncidentDashboard({
 
   return (
     <div className={`dashboard-content${preview ? ' is-preview' : ''}`}>
-      <section className="dashboard-metrics" aria-label="Incident summary">
-        <SummaryCard
-          label="Active incidents"
-          value={active.length}
-          icon={<Siren size={20} />}
-          note="Across this organization"
-        />
-        <SummaryCard
-          label="Awaiting response"
-          value={incidents.filter((incident) => incident.status === 'OPEN').length}
-          icon={<Clock3 size={20} />}
-          note="Need acknowledgement"
-        />
-        <SummaryCard
-          label="Investigating"
-          value={incidents.filter((incident) => incident.status === 'INVESTIGATING').length}
-          icon={<CircleDot size={20} />}
-          note="Work in progress"
-        />
-      </section>
-
-      <div className="dashboard-overview">
-        <section className="dash-panel activity-panel" aria-labelledby="activity-title">
-          <div className="dash-panel-heading">
-            <div>
-              <p className="panel-kicker">Response activity</p>
-              <h2 id="activity-title">Incidents opened</h2>
-            </div>
-            <span className="panel-period">{sample ? 'Sample week' : 'Last 7 days'}</span>
-          </div>
-          <div
-            className="activity-chart"
-            role="img"
-            aria-label={`Incidents opened in the last seven days: ${dayCounts.map((day) => `${day.label} ${day.count}`).join(', ')}`}
-          >
-            {dayCounts.map((day, index) => (
-              <div className="activity-day" key={index}>
-                <div className="activity-track">
-                  <span
-                    className={`activity-bar${index === 6 ? ' current' : ''}`}
-                    style={{
-                      height: `${day.count === 0 ? 0 : Math.max(20, (day.count / maxDayCount) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <strong>{day.count}</strong>
-                <small>{day.label}</small>
-              </div>
-            ))}
-          </div>
+      {mode !== 'incidents' && (
+        <section className="dashboard-metrics" aria-label="Incident summary">
+          <SummaryCard
+            label="Active incidents"
+            value={active.length}
+            icon={<Siren size={20} />}
+            note="Across this organization"
+          />
+          <SummaryCard
+            label="Awaiting response"
+            value={incidents.filter((incident) => incident.status === 'OPEN').length}
+            icon={<Clock3 size={20} />}
+            note="Need acknowledgement"
+          />
+          <SummaryCard
+            label="Investigating"
+            value={incidents.filter((incident) => incident.status === 'INVESTIGATING').length}
+            icon={<CircleDot size={20} />}
+            note="Work in progress"
+          />
         </section>
+      )}
 
-        <section className="dash-panel severity-panel" aria-labelledby="severity-title">
-          <div className="dash-panel-heading">
-            <div>
-              <p className="panel-kicker">Current load</p>
-              <h2 id="severity-title">Severity mix</h2>
-            </div>
-            <ArrowUpRight size={17} aria-hidden="true" />
-          </div>
-          <div className="severity-visual">
-            <div
-              className="severity-ring"
-              role="img"
-              aria-label={`Active incidents by severity: ${severityCounts.map((count, index) => `SEV${index + 1} ${count}`).join(', ')}`}
-              style={{
-                background: active.length
-                  ? `conic-gradient(var(--sev1) 0 ${percent(sev1, active.length)}%, var(--sev2) ${percent(sev1, active.length)}% ${percent(sev1 + sev2, active.length)}%, var(--sev3) ${percent(sev1 + sev2, active.length)}% ${percent(sev1 + sev2 + sev3, active.length)}%, var(--sev4) ${percent(sev1 + sev2 + sev3, active.length)}% 100%)`
-                  : 'var(--border)',
-              }}
-            >
+      {mode !== 'incidents' && (
+        <div className="dashboard-overview">
+          <section className="dash-panel activity-panel" aria-labelledby="activity-title">
+            <div className="dash-panel-heading">
               <div>
-                <strong>{active.length}</strong>
-                <span>active</span>
+                <p className="panel-kicker">Response activity</p>
+                <h2 id="activity-title">Incidents opened</h2>
               </div>
+              <span className="panel-period">{sample ? 'Sample week' : 'Last 7 days'}</span>
             </div>
-            <div className="severity-legend">
-              {severityCounts.map((count, index) => (
-                <div key={index}>
-                  <span className={`legend-dot sev${index + 1}`} />
-                  <span>SEV{index + 1}</span>
-                  <strong>{count}</strong>
+            <div
+              className="activity-chart"
+              role="img"
+              aria-label={`Incidents opened in the last seven days: ${dayCounts.map((day) => `${day.label} ${day.count}`).join(', ')}`}
+            >
+              {dayCounts.map((day, index) => (
+                <div className="activity-day" key={index}>
+                  <div className="activity-track">
+                    <span
+                      className={`activity-bar${index === 6 ? ' current' : ''}`}
+                      style={{
+                        height: `${day.count === 0 ? 0 : Math.max(20, (day.count / maxDayCount) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <strong>{day.count}</strong>
+                  <small>{day.label}</small>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-      </div>
+          </section>
+
+          <section className="dash-panel severity-panel" aria-labelledby="severity-title">
+            <div className="dash-panel-heading">
+              <div>
+                <p className="panel-kicker">Current load</p>
+                <h2 id="severity-title">Severity mix</h2>
+              </div>
+              <ArrowUpRight size={17} aria-hidden="true" />
+            </div>
+            <div className="severity-visual">
+              <div
+                className="severity-ring"
+                role="img"
+                aria-label={`Active incidents by severity: ${severityCounts.map((count, index) => `SEV${index + 1} ${count}`).join(', ')}`}
+                style={{
+                  background: active.length
+                    ? `conic-gradient(var(--sev1) 0 ${percent(sev1, active.length)}%, var(--sev2) ${percent(sev1, active.length)}% ${percent(sev1 + sev2, active.length)}%, var(--sev3) ${percent(sev1 + sev2, active.length)}% ${percent(sev1 + sev2 + sev3, active.length)}%, var(--sev4) ${percent(sev1 + sev2 + sev3, active.length)}% 100%)`
+                    : 'var(--border)',
+                }}
+              >
+                <div>
+                  <strong>{active.length}</strong>
+                  <span>active</span>
+                </div>
+              </div>
+              <div className="severity-legend">
+                {severityCounts.map((count, index) => (
+                  <div key={index}>
+                    <span className={`legend-dot sev${index + 1}`} />
+                    <span>SEV{index + 1}</span>
+                    <strong>{count}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       <section className="dash-panel queue-panel" id="incidents" aria-labelledby="queue-title">
         <div className="dash-panel-heading queue-heading">
@@ -167,11 +184,20 @@ export function IncidentDashboard({
               {organizationName}
               {role ? ` / ${role}` : ''}
             </p>
-            <h2 id="queue-title">Incident queue</h2>
+            <h2 id="queue-title">{mode === 'overview' ? 'Recent incidents' : 'Incident queue'}</h2>
           </div>
-          <span className="queue-count">{busy ? 'Syncing' : `${filtered.length} incidents`}</span>
+          <div className="queue-heading-actions">
+            <span className="queue-count">
+              {busy ? 'Syncing' : `${incidents.length} incidents`}
+            </span>
+            {mode === 'overview' && (
+              <Link className="admin-secondary" href="/app/incidents">
+                View all incidents <ArrowUpRight size={15} />
+              </Link>
+            )}
+          </div>
         </div>
-        {!preview && onQueryChange && (
+        {mode !== 'overview' && !preview && onQueryChange && (
           <div className="queue-tools">
             <label className="search-box">
               <Search size={16} />
@@ -185,7 +211,7 @@ export function IncidentDashboard({
             {sample && <span className="sample-chip">Sample data</span>}
           </div>
         )}
-        {filtered.length === 0 ? (
+        {displayed.length === 0 ? (
           <div className="empty-state">
             <Siren size={28} />
             <h3>{query ? 'No matching incidents' : 'No incidents yet'}</h3>
@@ -209,7 +235,7 @@ export function IncidentDashboard({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((incident) => (
+                {displayed.map((incident) => (
                   <tr key={incident.id}>
                     <td>
                       {onSelect ? (

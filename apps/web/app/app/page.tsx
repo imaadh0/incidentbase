@@ -388,9 +388,6 @@ function Sidebar(props: {
         </button>
       )}
       <p className="nav-label secondary">Explore</p>
-      <Link className="nav-link" href="/demo" {...(close ? { onClick: close } : {})}>
-        <CircleDot size={18} /> View demo
-      </Link>
       <Link className="nav-link" href="/" {...(close ? { onClick: close } : {})}>
         <ArrowRight size={18} /> Home
       </Link>

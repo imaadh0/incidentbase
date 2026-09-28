@@ -66,7 +66,11 @@ test('mobile navigation and incident severity select remain usable', async ({ pa
     .getByRole('link', { name: 'Incidents' })
     .click();
   await expect(page).toHaveURL(/\/app\/incidents$/);
-  await expect(page.getByRole('link', { name: 'Incidents' }).first()).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Workspace menu' }).getByRole('link', { name: 'Incidents' }),
+  ).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'Close navigation menu' }).click();
   await expect(page.getByRole('heading', { name: 'Incident queue' })).toBeVisible();
   await page.getByRole('button', { name: 'New incident' }).click();
   const form = page.getByRole('dialog', { name: 'Start the response' }).locator('form');

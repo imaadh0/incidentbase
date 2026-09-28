@@ -17,6 +17,10 @@ export MIGRATE_IMAGE="$image_prefix-migrate:$commit_sha"
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)
 trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+# Keep the small VPS from filling with images and build cache from prior releases.
+# Docker retains images used by running containers.
+docker builder prune --all --force
+docker image prune --all --force
 docker login ghcr.io --username "$registry_user" --password-stdin
 docker compose pull
 docker compose up -d --no-build --wait --wait-timeout 300

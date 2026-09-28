@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page, type Response } from '@playwright/test';
 
 type Account = {
   memberships: { membershipId: string; organizationId: string; organizationName: string }[];
@@ -173,8 +173,38 @@ async function acceptInvitation(page: Page, link: string, email: string) {
   const form = page.locator('form');
   await form.getByLabel('Email').fill(email);
   await form.getByLabel('Password').fill(password);
+  const responses: Promise<{ action: string; status: number; error: unknown }>[] = [];
+  const recordAuthResponse = (response: Response) => {
+    const path = new URL(response.url()).pathname;
+    const action = path.endsWith('/auth/login')
+      ? 'login'
+      : /\/invitations\/[^/]+\/accept$/u.test(path)
+        ? 'accept invitation'
+        : null;
+    if (!action) return;
+    responses.push(
+      response
+        .json()
+        .then((body: { error?: unknown }) => ({
+          action,
+          status: response.status(),
+          error: body.error,
+        }))
+        .catch(() => ({ action, status: response.status(), error: null })),
+    );
+  };
+  page.on('response', recordAuthResponse);
   await form.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/app$/);
+  try {
+    await expect(page).toHaveURL(/\/app$/, { timeout: 10_000 });
+  } catch {
+    const alerts = await page.getByRole('alert').allTextContents();
+    throw new Error(
+      `Invitation sign-in did not complete: ${JSON.stringify({ responses: await Promise.all(responses), alerts })}`,
+    );
+  } finally {
+    page.off('response', recordAuthResponse);
+  }
 }
 
 async function createResponder(browser: Browser, owner: Page, name: string, slug: string) {

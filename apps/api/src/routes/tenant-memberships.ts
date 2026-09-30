@@ -4,10 +4,12 @@ import { z } from 'zod';
 import { createOpaqueToken, hashOpaqueToken } from '@incidentbase/auth';
 import { canManageMembership, hasPermission } from '@incidentbase/authorization';
 import { invitationRequestSchema, membershipUpdateRequestSchema } from '@incidentbase/contracts';
+import { invitationEmail } from '@incidentbase/contracts';
 import { TenantAccessDeniedError, type TenantUnitOfWork } from '@incidentbase/database';
 
 import { ApplicationError } from '../errors/application-error.js';
 import { hasValidCsrfToken } from '../auth/request-authentication.js';
+import type { EmailSender } from '../email/sender.js';
 
 const routeParametersSchema = z.object({
   membershipId: z.uuid(),
@@ -25,6 +27,8 @@ export type TenantPrincipalResolver = (request: Request) => Promise<TenantPrinci
 interface TenantMembershipRouterOptions {
   resolvePrincipal: TenantPrincipalResolver;
   unitOfWork: TenantUnitOfWork;
+  emailSender?: EmailSender;
+  webOrigin?: string;
 }
 
 function unavailableResourceError(): ApplicationError {
@@ -92,7 +96,7 @@ export function createTenantMembershipRouter(options: TenantMembershipRouterOpti
 
     const token = createOpaqueToken();
     try {
-      const invitation = await options.unitOfWork.withTenant(
+      const { invitation, organizationName } = await options.unitOfWork.withTenant(
         { organizationId: parameters.data.organizationId, userId: principal.userId },
         async (tenant) => {
           const actorRole = tenant.actorMembership.role;
@@ -102,16 +106,35 @@ export function createTenantMembershipRouter(options: TenantMembershipRouterOpti
           ) {
             throw forbiddenError();
           }
-          return tenant.invitations.create({
+          const organization = await tenant.organizations.findById(parameters.data.organizationId);
+          if (organization === null) throw unavailableResourceError();
+          const invitation = await tenant.invitations.create({
             email: body.data.email,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
             invitedByUserId: principal.userId,
             organizationId: parameters.data.organizationId,
             role: body.data.role,
             tokenHash: hashOpaqueToken(token),
           });
+          return { invitation, organizationName: organization.name };
         },
       );
+      let delivery: 'LINK' | 'SENT' | 'FAILED' = 'LINK';
+      if (body.data.delivery === 'EMAIL') {
+        try {
+          const url = `${options.webOrigin ?? ''}/sign-in?invitation=${encodeURIComponent(token)}`;
+          if (!options.webOrigin || !options.emailSender)
+            throw new Error('Email delivery is unavailable.');
+          await options.emailSender.send(
+            invitation.email,
+            invitationEmail({ organizationName, role: invitation.role, url }),
+            `invitation-${invitation.id}`,
+          );
+          delivery = 'SENT';
+        } catch {
+          delivery = 'FAILED';
+        }
+      }
       response.status(201).json({
         data: {
           email: invitation.email,
@@ -120,6 +143,7 @@ export function createTenantMembershipRouter(options: TenantMembershipRouterOpti
           organizationId: invitation.organizationId,
           role: invitation.role,
           token,
+          delivery,
         },
       });
     } catch (error: unknown) {

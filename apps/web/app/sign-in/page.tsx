@@ -12,7 +12,12 @@ export default function SignInPage() {
       <div className="auth-theme">
         <ThemeToggle compact />
       </div>
-      <AuthenticationScreen onAuthenticated={() => router.replace('/app')} />
+      <AuthenticationScreen
+        onAuthenticated={(organizationId) => {
+          if (organizationId) localStorage.setItem('incidentbase.organization', organizationId);
+          router.replace('/app');
+        }}
+      />
     </div>
   );
 }

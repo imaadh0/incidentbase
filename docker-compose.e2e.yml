@@ -1,4 +1,33 @@
 services:
+  api:
+    environment:
+      WEB_ORIGIN: http://127.0.0.1:8080
+      RESEND_API_KEY: e2e-mail-capture-key
+      RESEND_FROM_EMAIL: invites@send.incidentbase.space
+      RESEND_API_ENDPOINT: http://mail-capture:8025/emails
+    depends_on:
+      mail-capture:
+        condition: service_healthy
+  mail-capture:
+    image: node:22-alpine
+    command: ['node', '/app/mail-capture.mjs']
+    volumes:
+      - ./infra/mail-capture/mail-capture.mjs:/app/mail-capture.mjs:ro
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8025/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      retries: 5
+    networks:
+      - backend
+      - edge
   nginx:
     ports: !override
       - '127.0.0.1:8080:80'
+    volumes: !override
+      - ./infra/nginx/nginx.e2e.conf:/etc/nginx/nginx.conf:ro

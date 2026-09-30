@@ -68,22 +68,41 @@ export function createRateLimitMiddleware(options: {
     void (async () => {
       if (request.method !== 'POST') return next();
       const path = request.path.replace(/\/+$/u, '').toLowerCase();
-      const login = path === '/auth/login';
+      const authBucket =
+        path === '/auth/login'
+          ? 'login'
+          : path === '/auth/register' || /^\/invitations\/[a-z0-9_-]{43}\/register$/u.test(path)
+            ? 'register'
+            : path === '/auth/verify-email'
+              ? 'verify-email'
+              : path === '/auth/resend-verification'
+                ? 'resend-verification'
+                : null;
       const creation = incidentCollection.exec(path);
       const command = incidentCommand.exec(path);
-      if (!login && creation === null && command === null) return next();
+      if (authBucket === null && creation === null && command === null) return next();
       const organizationId = creation?.[1] ?? command?.[1];
       if (organizationId !== undefined && !z.uuid().safeParse(organizationId).success)
         return next();
-      const principal = login ? null : await options.resolvePrincipal(request);
-      if (!login && principal === null) return next();
-      const dimension = login
-        ? `ip:${request.ip ?? request.socket.remoteAddress ?? 'unknown'}`
-        : `member:${organizationId}:${principal!.userId}`;
-      const bucket = login ? 'login' : creation !== null ? 'incident-create' : 'incident-command';
+      const principal = authBucket !== null ? null : await options.resolvePrincipal(request);
+      if (authBucket === null && principal === null) return next();
+      const dimension =
+        authBucket !== null
+          ? `ip:${request.ip ?? request.socket.remoteAddress ?? 'unknown'}`
+          : `member:${organizationId}:${principal!.userId}`;
+      const bucket = authBucket ?? (creation !== null ? 'incident-create' : 'incident-command');
       const key = `${bucket}:${createHash('sha256').update(dimension).digest('hex')}`;
-      const limit = login ? 10 : creation !== null ? 10 : 30;
-      const windowMs = login ? 900_000 : 60_000;
+      const limit =
+        authBucket === 'login'
+          ? 10
+          : authBucket === 'register'
+            ? 20
+            : authBucket !== null
+              ? 30
+              : creation !== null
+                ? 10
+                : 30;
+      const windowMs = authBucket !== null ? 900_000 : 60_000;
       try {
         const result = await options.store.consume(key, limit, windowMs);
         if (!result.allowed) {
@@ -101,7 +120,7 @@ export function createRateLimitMiddleware(options: {
       } catch (error: unknown) {
         options.metrics?.rateLimitDecisions.inc({ bucket, outcome: 'store_error' });
         options.logger.warn({ err: error, bucket }, 'Rate limit store unavailable');
-        if (login)
+        if (authBucket !== null)
           return next(
             new ApplicationError({
               code: 'DEPENDENCY_UNAVAILABLE',

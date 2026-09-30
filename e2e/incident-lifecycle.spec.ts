@@ -24,20 +24,127 @@ test('registration explains invalid fields inline and accepts a ten-character pa
   await form.getByRole('button', { name: 'Create workspace' }).click();
   await expect(form.getByText('Enter your name.')).toBeVisible();
   await expect(form.getByText('Enter your email address.')).toBeVisible();
-  await expect(form.getByText('Enter your password.')).toBeVisible();
+  await expect(form.getByText('Enter your password.', { exact: true })).toBeVisible();
 
   await form.getByLabel('Your name').fill('Short Password Owner');
   await form.getByLabel('Organization name').fill('Short Password Workspace');
   await form.getByLabel('Organization slug').fill(`short-${suffix}`);
   await form.getByLabel('Email').fill(`short-${suffix}@example.test`);
-  await form.getByLabel('Password').fill('1234567');
+  await form.getByLabel('Password', { exact: true }).fill('1234567');
   await form.getByRole('button', { name: 'Create workspace' }).click();
   await expect(form.getByText('Use at least 8 characters.')).toBeVisible();
 
-  await form.getByLabel('Password').fill('1234567890');
+  await form.getByLabel('Password', { exact: true }).fill('1234567890');
+  await form.getByLabel('Confirm password').fill('1234567890');
   await expect(form.getByText('Use at least 8 characters.')).toHaveCount(0);
   await form.getByRole('button', { name: 'Create workspace' }).click();
+  await verifyEmail(page, `short-${suffix}@example.test`);
   await expect(page).toHaveURL(/\/app$/);
+});
+
+test('a new invitee opens account creation and confirms the password before joining', async ({
+  browser,
+  page,
+}) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const owner = await register(
+    page,
+    'Invitation Test Owner',
+    `invite-owner-${suffix}@example.test`,
+    `invite-owner-${suffix}`,
+  );
+  const email = `new-invitee-${suffix}@example.test`;
+  const link = await invite(page, email);
+  const context = await browser.newContext({
+    baseURL: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080',
+  });
+  try {
+    const invitee = await context.newPage();
+    await invitee.goto(link);
+    await expect(invitee.getByRole('button', { name: 'Create account', exact: true })).toHaveClass(
+      /active/u,
+    );
+    await expect(
+      invitee.getByRole('heading', { name: 'Join Invitation Test Owner workspace' }),
+    ).toBeVisible();
+    const form = invitee.locator('form');
+    await expect(form.getByLabel('Email')).toHaveValue(email);
+    await expect(form.getByLabel('Email')).toHaveAttribute('readonly', '');
+    await expect(form.getByLabel('Organization name')).toHaveCount(0);
+    await form.getByLabel('Your name').fill('New Invitee');
+    await form.getByLabel('Password', { exact: true }).fill(password);
+    await form.getByLabel('Confirm password').fill('different-password');
+    await form.getByRole('button', { name: 'Create account and join' }).click();
+    await expect(form.getByText('Passwords do not match.')).toBeVisible();
+    await form.getByLabel('Confirm password').fill(password);
+    await form.getByRole('button', { name: 'Create account and join' }).click();
+    await verifyEmail(invitee, email);
+    await expect(invitee).toHaveURL(/\/app$/);
+    const account = await api<Account>(invitee, '/auth/me');
+    expect(account.status).toBe(200);
+    expect(account.data!.memberships).toEqual([
+      expect.objectContaining({ organizationId: owner.organizationId }),
+    ]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('an owner can email an invitation and still copy its link', async ({ page }) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await register(
+    page,
+    'Email Invite Owner',
+    `email-owner-${suffix}@example.test`,
+    `email-owner-${suffix}`,
+  );
+  const email = `recipient-${suffix}@example.test`;
+  await page.getByRole('link', { name: 'Administration' }).click();
+  const form = page
+    .locator('form')
+    .filter({ has: page.getByRole('button', { name: 'Send email' }) });
+  await form.getByLabel('Email').fill(email);
+  await form.getByRole('button', { name: 'Send email' }).click();
+  await expect(
+    page.getByText('Invitation email sent. You can also copy the link below.'),
+  ).toBeVisible();
+  const link = (await page.locator('.invitation-link code').textContent())!;
+  const captureUrl = process.env.E2E_MAIL_CAPTURE_URL ?? 'http://127.0.0.1:8080/__e2e_mail';
+  const response = await fetch(`${captureUrl}/messages?to=${encodeURIComponent(email)}`);
+  const result = (await response.json()) as { data: { text: string } | null };
+  expect(result.data?.text).toContain(link);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Copy invitation link' }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
+});
+
+test('an existing invitee opens sign-in and lands in the inviting organization', async ({
+  browser,
+  page,
+}) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const owner = await register(
+    page,
+    'Existing Invite Owner',
+    `existing-invite-owner-${suffix}@example.test`,
+    `existing-invite-owner-${suffix}`,
+  );
+  const responder = await createResponder(
+    browser,
+    page,
+    'Existing Invitee',
+    `existing-invitee-${suffix}`,
+  );
+  try {
+    expect(responder.account.memberships).toEqual(
+      expect.arrayContaining([expect.objectContaining({ organizationId: owner.organizationId })]),
+    );
+    expect(
+      await responder.page.evaluate(() => localStorage.getItem('incidentbase.organization')),
+    ).toBe(owner.organizationId);
+  } finally {
+    await responder.context.close();
+  }
 });
 
 test('mobile navigation and incident severity select remain usable', async ({ page }) => {
@@ -143,8 +250,10 @@ async function register(page: Page, name: string, email: string, slug: string) {
   await form.getByLabel('Organization name').fill(`${name} workspace`);
   await form.getByLabel('Organization slug').fill(slug);
   await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Password').fill(password);
+  await form.getByLabel('Password', { exact: true }).fill(password);
+  await form.getByLabel('Confirm password').fill(password);
   await form.getByRole('button', { name: 'Create workspace' }).click();
+  await verifyEmail(page, email);
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole('heading', { name: 'Response overview' })).toBeVisible();
   const account = await api<Account>(page, '/auth/me');
@@ -152,18 +261,35 @@ async function register(page: Page, name: string, email: string, slug: string) {
   return account.data!.memberships[0]!;
 }
 
+async function verifyEmail(page: Page, email: string) {
+  await expect(page.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
+  const captureUrl = process.env.E2E_MAIL_CAPTURE_URL ?? 'http://127.0.0.1:8080/__e2e_mail';
+  const response = await fetch(`${captureUrl}/messages?to=${encodeURIComponent(email)}`);
+  if (!response.ok) throw new Error(`Mail capture returned HTTP ${response.status}.`);
+  const result = (await response.json()) as { data: { text: string } | null };
+  const code = /code is (\d{6})/u.exec(result.data?.text ?? '')?.[1];
+  if (!code) throw new Error(`No verification code was captured for ${email}.`);
+  await page.getByLabel('Verification code').fill(code);
+  await page.getByRole('button', { name: 'Verify and continue' }).click();
+}
+
 async function invite(owner: Page, email: string) {
   await owner.getByRole('link', { name: 'Administration' }).click();
   const form = owner
     .locator('form')
-    .filter({ has: owner.getByRole('button', { name: 'Create invitation' }) });
+    .filter({ has: owner.getByRole('button', { name: 'Create link' }) });
   await form.getByLabel('Email').fill(email);
   await form.getByRole('combobox', { name: 'Role' }).click();
   await owner.getByRole('option', { name: 'Responder' }).click();
-  await form.getByRole('button', { name: 'Create invitation' }).click();
+  await form.getByRole('button', { name: 'Create link' }).click();
   const link = owner.locator('.invitation-link code');
   await expect(link).toContainText('/sign-in?invitation=');
-  return (await link.textContent())!;
+  const invitationUrl = (await link.textContent())!;
+  await owner.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await owner.getByRole('button', { name: 'Copy invitation link' }).click();
+  await expect(owner.getByRole('button', { name: 'Copy invitation link' })).toContainText('Copied');
+  expect(await owner.evaluate(() => navigator.clipboard.readText())).toBe(invitationUrl);
+  return invitationUrl;
 }
 
 async function acceptInvitation(page: Page, link: string, email: string) {
@@ -171,16 +297,16 @@ async function acceptInvitation(page: Page, link: string, email: string) {
   await expect(page).toHaveURL(/\/sign-in$/);
   await page.goto(link);
   const form = page.locator('form');
-  await form.getByLabel('Email').fill(email);
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true }).first()).toHaveClass(
+    /active/u,
+  );
+  await expect(form.getByLabel('Email')).toHaveValue(email);
+  await expect(form.getByLabel('Email')).toHaveAttribute('readonly', '');
   await form.getByLabel('Password').fill(password);
   const responses: Promise<{ action: string; status: number; error: unknown }>[] = [];
   const recordAuthResponse = (response: Response) => {
     const path = new URL(response.url()).pathname;
-    const action = path.endsWith('/auth/login')
-      ? 'login'
-      : /\/invitations\/[^/]+\/accept$/u.test(path)
-        ? 'accept invitation'
-        : null;
+    const action = /\/invitations\/[^/]+\/login$/u.test(path) ? 'invitation login' : null;
     if (!action) return;
     responses.push(
       response

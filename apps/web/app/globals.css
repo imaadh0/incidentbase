@@ -2554,6 +2554,35 @@ button.incident-link:hover span {
   border-radius: 0.5rem;
   padding: 0.75rem;
 }
+.invitation-actions,
+.invitation-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.invitation-link-row code {
+  flex: 1 1 14rem;
+}
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--raised);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.secondary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .queue-heading-actions {
   display: flex;
   align-items: center;

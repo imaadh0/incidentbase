@@ -23,7 +23,8 @@ trap restore_nginx EXIT
 docker compose stop nginx
 nginx_stopped=true
 docker run --rm --publish 80:80 --volume "$cert_dir:/etc/letsencrypt" \
-  certbot/certbot:latest renew --standalone --non-interactive --no-random-sleep-on-renew --quiet
+  certbot/certbot:latest renew --cert-name incidentbase.space --standalone \
+  --non-interactive --no-random-sleep-on-renew --quiet
 docker compose start nginx
 nginx_stopped=false
 trap - EXIT

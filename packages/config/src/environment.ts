@@ -46,6 +46,15 @@ export const apiEnvironmentSchema = runtimeSchema
       .string()
       .regex(/^[a-f\d]{64}$/iu)
       .optional(),
+    RESEND_API_KEY: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().min(1).optional(),
+    ),
+    RESEND_FROM_EMAIL: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.email().optional(),
+    ),
+    RESEND_API_ENDPOINT: z.url().optional(),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   })
   .refine(telemetryRequirement.check, telemetryRequirement);

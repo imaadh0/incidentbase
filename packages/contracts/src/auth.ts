@@ -27,6 +27,20 @@ export const loginRequestSchema = z.object({
 export const invitationRequestSchema = z.object({
   email: emailSchema,
   role: organizationRoleSchema,
+  delivery: z.enum(['LINK', 'EMAIL']).default('LINK'),
+});
+
+export const verificationRequestSchema = z.object({
+  pendingId: z.uuid(),
+  code: z.string().regex(/^\d{6}$/u),
+});
+
+export const resendVerificationRequestSchema = z.object({ pendingId: z.uuid() });
+
+export const inviteeRegistrationRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+  email: emailSchema,
+  password: passwordSchema,
 });
 
 export const membershipUpdateRequestSchema = z

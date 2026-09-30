@@ -97,7 +97,11 @@ describe('notification delivery with mock providers', () => {
     expect(await processor.runOnce()).toEqual({ sent: 1, failed: 0 });
     expect(db.finishNotificationDelivery).toHaveBeenCalledWith(item, 'email-123', null, false);
     expect(requests).toMatchObject([
-      { path: '/emails', headers: { 'idempotency-key': item.deliveryKey } },
+      {
+        path: '/emails',
+        headers: { 'idempotency-key': item.deliveryKey },
+        body: { html: expect.stringContaining('INCIDENTBASE'), text: item.body },
+      },
     ]);
   });
 

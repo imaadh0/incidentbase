@@ -24,8 +24,8 @@ docker image prune --all --force
 docker login ghcr.io --username "$registry_user" --password-stdin
 docker compose pull
 docker compose up -d --no-build --wait --wait-timeout 300
-curl --fail --silent --show-error https://129-154-225-87.nip.io/api/v1/health/ready
-curl --fail --silent --show-error https://129-154-225-87.nip.io/ >/dev/null
+curl --fail --silent --show-error https://incidentbase.space/api/v1/health/ready
+curl --fail --silent --show-error https://incidentbase.space/ >/dev/null
 
 for service in WEB API WORKER MIGRATE; do
   name="${service}_IMAGE"

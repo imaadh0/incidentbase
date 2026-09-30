@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowRight, Bell, BookOpen, RefreshCw, Settings2, Users } from 'lucide-react';
+import { ArrowRight, Bell, BookOpen, Copy, RefreshCw, Settings2, Users } from 'lucide-react';
 
 import { apiRequest, type Member, type Role } from '../lib/api';
 import { SelectControl } from './select-control';
@@ -54,6 +54,8 @@ export function AdministrationPanel(props: {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitation, setInvitation] = useState<string | null>(null);
+  const [invitationDelivery, setInvitationDelivery] = useState<'LINK' | 'SENT' | 'FAILED'>('LINK');
+  const [copied, setCopied] = useState(false);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
   const [draftSteps, setDraftSteps] = useState<PolicyStep[]>([
     { responderMembershipId: '', waitSeconds: 600 },
@@ -98,13 +100,46 @@ export function AdministrationPanel(props: {
   async function invite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
-    await mutate(async () => {
-      const result = await apiRequest<{ token: string }>(`${prefix}/invitations`, {
-        method: 'POST',
-        body: JSON.stringify({ email: fields.get('email'), role: fields.get('role') }),
-      });
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const delivery = submitter?.value === 'EMAIL' ? 'EMAIL' : 'LINK';
+    setBusy(true);
+    setMessage(null);
+    setInvitation(null);
+    setCopied(false);
+    try {
+      const result = await apiRequest<{ token: string; delivery: 'LINK' | 'SENT' | 'FAILED' }>(
+        `${prefix}/invitations`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ email: fields.get('email'), role: fields.get('role'), delivery }),
+        },
+      );
       setInvitation(result.token);
-    }, 'Invitation created. Share the link privately; the token is shown only now.');
+      setInvitationDelivery(result.delivery);
+      setMessage(
+        result.delivery === 'SENT'
+          ? 'Invitation email sent. You can also copy the link below.'
+          : result.delivery === 'FAILED'
+            ? 'The email could not be sent. Copy the invitation link below instead.'
+            : 'Invitation created. Copy the link below to share it.',
+      );
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Could not create the invitation.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyInvitation() {
+    if (!invitation) return;
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/sign-in?invitation=${invitation}`,
+      );
+      setCopied(true);
+    } catch {
+      setMessage('Could not copy the link. Select it below and copy it manually.');
+    }
   }
 
   async function savePolicy(event: FormEvent<HTMLFormElement>) {
@@ -315,14 +350,32 @@ export function AdministrationPanel(props: {
                   ]}
                 />
               </div>
-              <button className="primary-button" type="submit" disabled={busy}>
-                Create invitation <ArrowRight size={16} />
-              </button>
+              <div className="invitation-actions">
+                <button className="primary-button" type="submit" value="EMAIL" disabled={busy}>
+                  Send email <ArrowRight size={16} />
+                </button>
+                <button className="secondary-button" type="submit" value="LINK" disabled={busy}>
+                  Create link
+                </button>
+              </div>
             </form>
             {invitation && (
               <div className="invitation-link">
                 <small>One-time invitation link</small>
-                <code>{`${window.location.origin}/sign-in?invitation=${invitation}`}</code>
+                <div className="invitation-link-row">
+                  <code>{`${window.location.origin}/sign-in?invitation=${invitation}`}</code>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void copyInvitation()}
+                    aria-label="Copy invitation link"
+                  >
+                    <Copy size={16} /> {copied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <small>
+                  Expires in 24 hours.{invitationDelivery === 'SENT' ? ' Email sent.' : ''}
+                </small>
               </div>
             )}
           </section>

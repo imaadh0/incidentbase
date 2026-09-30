@@ -17,6 +17,8 @@ import { AuthenticationService } from './auth/authentication-service.js';
 import { authenticateRequest } from './auth/request-authentication.js';
 import { createRealtimeGateway } from './realtime/realtime-gateway.js';
 import { RedisRateLimitStore } from './middleware/rate-limit.js';
+import { ResendEmailSender } from './email/sender.js';
+import { PendingRegistrationStore } from './auth/pending-registration.js';
 
 interface StartApiServerOptions {
   environment: ApiEnvironment;
@@ -48,12 +50,29 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     accessTokens,
     refreshTokenTtlSeconds: options.environment.REFRESH_TOKEN_TTL_SECONDS,
     repository: new AuthenticationRepository(database),
+    pendingRegistrations: new PendingRegistrationStore(
+      rateLimitRedis,
+      options.environment.JWT_SECRET,
+    ),
+    emailSender: new ResendEmailSender(
+      options.environment.RESEND_API_KEY,
+      options.environment.RESEND_FROM_EMAIL,
+      fetch,
+      options.environment.RESEND_API_ENDPOINT,
+    ),
   });
+  const emailSender = new ResendEmailSender(
+    options.environment.RESEND_API_KEY,
+    options.environment.RESEND_FROM_EMAIL,
+    fetch,
+    options.environment.RESEND_API_ENDPOINT,
+  );
   const app = createApp({
     authentication: { accessTokens, service: authentication },
     environment: options.environment,
     logger: options.logger,
     metrics,
+    emailSender,
     rateLimitStore: new RedisRateLimitStore(rateLimitRedis),
     readinessChecks: {
       database: async () => {

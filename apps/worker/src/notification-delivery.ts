@@ -1,5 +1,6 @@
 import type { ClaimedNotificationDelivery, WorkerUnitOfWork } from '@incidentbase/database';
 import { NotificationSecretCodec } from '@incidentbase/database';
+import { notificationEmail } from '@incidentbase/contracts';
 
 type DeliverySource = Pick<
   WorkerUnitOfWork,
@@ -68,11 +69,11 @@ export class NotificationDeliveryProcessor {
         authorization: `Bearer ${this.options.resendApiKey}`,
         'idempotency-key': delivery.deliveryKey,
       };
+      const content = notificationEmail(delivery.subject, delivery.body);
       body = JSON.stringify({
         from: this.options.resendFromEmail,
         to: [delivery.recipient],
-        subject: delivery.subject,
-        text: delivery.body,
+        ...content,
       });
     } else {
       const ciphertext = await this.source.notificationWebhookCiphertext(

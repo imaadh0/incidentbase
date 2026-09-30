@@ -5,6 +5,8 @@ export {
   type CurrentUserIdentity,
   type InvitationAcceptanceOutcome,
   type InvitationAcceptanceResult,
+  type InvitationPreview,
+  type InviteeRegistrationResult,
   type LoginIdentity,
   type RefreshRotationOutcome,
   type RefreshRotationResult,

@@ -19,6 +19,15 @@ export interface Account {
   user: { displayName: string; email: string; id: string };
 }
 
+export interface InvitationPreview {
+  email: string;
+  hasAccount: boolean;
+  organizationId: string;
+  organizationName: string;
+  outcome: 'AVAILABLE' | 'EXPIRED' | 'USED';
+  role: Role;
+}
+
 export interface Member {
   displayName: string;
   id: string;

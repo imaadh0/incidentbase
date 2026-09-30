@@ -29,11 +29,27 @@ export interface RefreshRotationResult {
   userId: string | null;
 }
 
-export type InvitationAcceptanceOutcome = 'ACCEPTED' | 'INVALID' | 'EXPIRED' | 'EMAIL_MISMATCH';
+export type InvitationAcceptanceOutcome =
+  'ACCEPTED' | 'INVALID' | 'USED' | 'EXPIRED' | 'EMAIL_MISMATCH';
 
 export interface InvitationAcceptanceResult {
   organizationId: string | null;
   outcome: InvitationAcceptanceOutcome;
+}
+
+export interface InvitationPreview {
+  email: string;
+  organizationId: string;
+  organizationName: string;
+  outcome: 'AVAILABLE' | 'EXPIRED' | 'USED';
+  role: AuthMembership['role'];
+}
+
+export type InviteeRegistrationOutcome = InvitationAcceptanceOutcome | 'USED' | 'EMAIL_EXISTS';
+
+export interface InviteeRegistrationResult {
+  organizationId: string | null;
+  outcome: InviteeRegistrationOutcome;
 }
 
 interface RegisterOwnerInput {
@@ -89,6 +105,12 @@ export class AuthenticationRepository {
           ${input.membershipId}::uuid
         )::text
       `;
+    });
+  }
+
+  public markEmailVerified(userId: string): Promise<void> {
+    return this.withRuntimeRole(async (transaction) => {
+      await transaction.$queryRaw`SELECT app.auth_mark_email_verified(${userId}::uuid)::text`;
     });
   }
 
@@ -232,6 +254,56 @@ export class AuthenticationRepository {
         throw new Error('Invitation acceptance did not return an outcome.');
       }
       return { organizationId: result.organization_id, outcome: result.outcome };
+    });
+  }
+
+  public previewInvitation(tokenHash: string): Promise<InvitationPreview | null> {
+    return this.withRuntimeRole(async (transaction) => {
+      const rows = await transaction.$queryRaw<
+        Array<{
+          email: string;
+          organization_id: string;
+          organization_name: string;
+          outcome: InvitationPreview['outcome'];
+          role: InvitationPreview['role'];
+        }>
+      >`SELECT * FROM app.auth_preview_invitation(${tokenHash})`;
+      const row = rows[0];
+      return row === undefined
+        ? null
+        : {
+            email: row.email,
+            organizationId: row.organization_id,
+            organizationName: row.organization_name,
+            outcome: row.outcome,
+            role: row.role,
+          };
+    });
+  }
+
+  public registerInvitee(input: {
+    displayName: string;
+    email: string;
+    membershipId: string;
+    passwordHash: string;
+    tokenHash: string;
+    userId: string;
+  }): Promise<InviteeRegistrationResult> {
+    return this.withRuntimeRole(async (transaction) => {
+      const rows = await transaction.$queryRaw<
+        Array<{
+          organization_id: string | null;
+          outcome: InviteeRegistrationOutcome;
+        }>
+      >`
+        SELECT * FROM app.auth_register_invitee(
+          ${input.tokenHash}, ${input.email}, ${input.displayName},
+          ${input.passwordHash}, ${input.userId}::uuid, ${input.membershipId}::uuid
+        )
+      `;
+      const row = rows[0];
+      if (row === undefined) throw new Error('Invitee registration did not return an outcome.');
+      return { organizationId: row.organization_id, outcome: row.outcome };
     });
   }
 

@@ -28,7 +28,7 @@ pnpm test:e2e
 docker compose -p incidentbase-e2e -f docker-compose.yml -f docker-compose.e2e.yml down --volumes
 ```
 
-The suite uses a separate Compose project and port, creates unique test workspaces, and uses a 15-second escalation policy. With no Groq key configured, it verifies that resolution still completes and the summary becomes `UNAVAILABLE`. CI runs this suite against a fresh Compose stack on every pull request and push to `main`.
+The suite uses a separate Compose project and port, creates unique test workspaces, and uses a 15-second escalation policy. Its local mail capture service handles verification and invitation emails; browser tests read one-time codes through the isolated test gateway, so no real email is sent. To try this manually, open `http://127.0.0.1:8080/sign-in` and read a code at `http://127.0.0.1:8080/__e2e_mail/messages?to=you@example.test` after submitting that email. With no Groq key configured, it verifies that resolution still completes and the summary becomes `UNAVAILABLE`. CI runs this suite against a fresh Compose stack on every pull request and push to `main`.
 
 Copy `.env.example` to `.env` before running services. Environment values are validated at startup; invalid configuration prevents a partial startup.
 

@@ -16,6 +16,7 @@ import { createRateLimitMiddleware, type RateLimitStore } from './middleware/rat
 import { createHealthRouter, type ReadinessCheck } from './routes/health.js';
 import { createAuthRouter } from './routes/auth.js';
 import type { AuthenticationService } from './auth/authentication-service.js';
+import type { EmailSender } from './email/sender.js';
 import {
   createTenantMembershipRouter,
   type TenantPrincipalResolver,
@@ -41,6 +42,7 @@ export interface CreateAppOptions {
   tenantBoundary?: TenantBoundaryOptions;
   authentication?: AuthenticationOptions;
   rateLimitStore?: RateLimitStore;
+  emailSender?: EmailSender;
 }
 
 export function createApp(options: CreateAppOptions): Express {
@@ -90,7 +92,13 @@ export function createApp(options: CreateAppOptions): Express {
     );
   }
   if (options.tenantBoundary !== undefined) {
-    app.use(createTenantMembershipRouter(options.tenantBoundary));
+    app.use(
+      createTenantMembershipRouter({
+        ...options.tenantBoundary,
+        ...(options.emailSender ? { emailSender: options.emailSender } : {}),
+        webOrigin: options.environment.WEB_ORIGIN,
+      }),
+    );
     app.use(createTenantIncidentRouter(options.tenantBoundary));
     if (options.environment.NOTIFICATION_ENCRYPTION_KEY) {
       app.use(

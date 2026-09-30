@@ -72,6 +72,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-development-jwt-secret-change-me-now}
       NOTIFICATION_ENCRYPTION_KEY: ${NOTIFICATION_ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      RESEND_API_ENDPOINT: ${RESEND_API_ENDPOINT:-https://api.resend.com/emails}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     healthcheck:

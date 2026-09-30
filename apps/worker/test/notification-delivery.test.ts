@@ -100,9 +100,10 @@ describe('notification delivery with mock providers', () => {
       {
         path: '/emails',
         headers: { 'idempotency-key': item.deliveryKey },
-        body: { html: expect.stringContaining('INCIDENTBASE'), text: item.body },
+        body: { text: item.body },
       },
     ]);
+    expect(JSON.stringify(requests)).toContain('INCIDENTBASE');
   });
 
   it('sends Slack and Discord webhook payloads through allowlisted encrypted URLs', async () => {

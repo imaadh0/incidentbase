@@ -24,6 +24,9 @@ docker image prune --all --force
 docker login ghcr.io --username "$registry_user" --password-stdin
 docker compose pull
 docker compose up -d --no-build --wait --wait-timeout 300
+# Git may replace the bind-mounted config file without changing Compose's
+# service definition. Recreate Nginx so it loads the checked-out config.
+docker compose up -d --no-deps --force-recreate nginx
 curl --fail --silent --show-error https://incidentbase.space/api/v1/health/ready
 curl --fail --silent --show-error https://incidentbase.space/ >/dev/null
 

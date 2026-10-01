@@ -8,7 +8,7 @@ export interface LoginIdentity {
   passwordHash: string | null;
 }
 
-export type CurrentUserIdentity = Omit<LoginIdentity, 'passwordHash'>;
+export type CurrentUserIdentity = Omit<LoginIdentity, 'passwordHash'> & { avatarColor: string };
 
 export interface AuthMembership {
   membershipId: string;
@@ -163,14 +163,28 @@ export class AuthenticationRepository {
     return this.withRuntimeRole(async (transaction) => {
       await this.applyUserContext(transaction, userId);
       const rows = await transaction.$queryRaw<
-        Array<{ display_name: string; email: string; id: string }>
+        Array<{ avatar_color: string; display_name: string; email: string; id: string }>
       >`
         SELECT * FROM app.auth_current_identity(${userId}::uuid)
       `;
       const identity = rows[0];
       return identity === undefined
         ? null
-        : { displayName: identity.display_name, email: identity.email, id: identity.id };
+        : {
+            avatarColor: identity.avatar_color,
+            displayName: identity.display_name,
+            email: identity.email,
+            id: identity.id,
+          };
+    });
+  }
+
+  public updateProfile(userId: string, displayName: string, avatarColor: string): Promise<void> {
+    return this.withRuntimeRole(async (transaction) => {
+      await this.applyUserContext(transaction, userId);
+      await transaction.$queryRaw`
+        SELECT app.auth_update_profile(${userId}::uuid, ${displayName}, ${avatarColor})::text
+      `;
     });
   }
 

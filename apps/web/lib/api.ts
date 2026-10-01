@@ -16,7 +16,7 @@ export interface AccountMembership {
 
 export interface Account {
   memberships: AccountMembership[];
-  user: { displayName: string; email: string; id: string };
+  user: { avatarColor: string; displayName: string; email: string; id: string };
 }
 
 export interface InvitationPreview {

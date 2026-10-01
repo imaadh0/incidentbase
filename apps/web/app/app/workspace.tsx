@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import * as Dialog from '@radix-ui/react-dialog';
 
 import {
   Activity,
@@ -8,9 +9,11 @@ import {
   CircleDot,
   LogOut,
   Plus,
+  RefreshCw,
   Settings2,
   Siren,
   Users,
+  UserRound,
   X,
 } from 'lucide-react';
 import {
@@ -47,18 +50,39 @@ import { AdministrationPanel } from '../../components/administration-panel';
 import { MobileMenu } from '../../components/mobile-menu';
 import { SelectControl } from '../../components/select-control';
 import { ThemeToggle } from '../../components/theme-toggle';
+import { ProfileSettings } from '../../components/profile-settings';
+import { UserAvatar } from '../../components/user-avatar';
+import {
+  WelcomeMoment,
+  welcomeStorageKey,
+  type WelcomeKind,
+} from '../../components/welcome-moment';
 import { severityLabel, severityLevels } from '../../lib/severity';
 
-export type WorkspaceView = 'overview' | 'incidents' | 'administration';
+export type WorkspaceView = 'overview' | 'incidents' | 'administration' | 'profile';
 
 export function WorkspacePage({ view }: { view: WorkspaceView }) {
   const router = useRouter();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
+  const [welcome, setWelcome] = useState<{ kind: WelcomeKind; name: string } | null>(null);
 
   const loadAccount = useCallback(async () => {
     try {
-      setAccount(await apiRequest<Account>('/auth/me'));
+      const nextAccount = await apiRequest<Account>('/auth/me');
+      setAccount(nextAccount);
+      const stored = sessionStorage.getItem(welcomeStorageKey);
+      sessionStorage.removeItem(welcomeStorageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as { kind?: string; name?: string };
+          if (parsed.kind === 'new' || parsed.kind === 'returning') {
+            setWelcome({ kind: parsed.kind, name: parsed.name ?? nextAccount.user.displayName });
+          }
+        } catch {
+          // Ignore stale session handoff data.
+        }
+      }
     } catch (error: unknown) {
       if (!(error instanceof ApiError) || error.status !== 401) throw error;
       setAccount(null);
@@ -77,14 +101,20 @@ export function WorkspacePage({ view }: { view: WorkspaceView }) {
 
   if (loading || account === null) return <LoadingScreen />;
   return (
-    <OperationsWorkspace
-      account={account}
-      view={view}
-      onLoggedOut={() => {
-        setAccount(null);
-        router.replace('/sign-in');
-      }}
-    />
+    <>
+      <OperationsWorkspace
+        account={account}
+        view={view}
+        onAccountChanged={setAccount}
+        onLoggedOut={() => {
+          setAccount(null);
+          router.replace('/sign-in');
+        }}
+      />
+      {welcome && (
+        <WelcomeMoment kind={welcome.kind} name={welcome.name} onDone={() => setWelcome(null)} />
+      )}
+    </>
   );
 }
 
@@ -92,10 +122,12 @@ function OperationsWorkspace({
   account,
   view,
   onLoggedOut,
+  onAccountChanged,
 }: {
   account: Account;
   view: WorkspaceView;
   onLoggedOut: () => void;
+  onAccountChanged: (account: Account) => void;
 }) {
   const router = useRouter();
   const activeMemberships = useMemo(
@@ -115,6 +147,9 @@ function OperationsWorkspace({
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<RealtimeIncidentEvent[]>([]);
+  const [connectionState, setConnectionState] = useState<'connecting' | 'live' | 'reconnecting'>(
+    'connecting',
+  );
   const cursorRef = useRef('0');
   const seenEvents = useRef(new Set<string>());
 
@@ -182,6 +217,7 @@ function OperationsWorkspace({
     if (organizationId === '') return;
     const socket: Socket = io({ path: '/socket.io', withCredentials: true });
     const resynchronize = () => {
+      setConnectionState('live');
       socket.emit('organization:join', { organizationId });
       void loadWorkspace();
       void loadSelected(cursorRef.current);
@@ -201,6 +237,8 @@ function OperationsWorkspace({
       setToasts((current) => [parsed.data, ...current].slice(0, 4));
     };
     socket.on('connect', resynchronize);
+    socket.on('disconnect', () => setConnectionState('reconnecting'));
+    socket.on('connect_error', () => setConnectionState('reconnecting'));
     socket.on(REALTIME_INCIDENT_EVENT, receiveInvalidation);
     socket.on(REALTIME_TOAST_EVENT, receiveToast);
     return () => {
@@ -213,7 +251,7 @@ function OperationsWorkspace({
     onLoggedOut();
   }
 
-  if (membership === undefined) {
+  if (membership === undefined && view !== 'profile') {
     return <EmptyMembership account={account} onLoggedOut={() => void logout()} />;
   }
 
@@ -233,7 +271,7 @@ function OperationsWorkspace({
         onLogout={() => void logout()}
       />
       <main className="main-content" id="top">
-        <header className="topbar">
+        <header className={`topbar topbar-${view}`}>
           <div>
             <p className="eyebrow">
               Workspace /{' '}
@@ -241,19 +279,23 @@ function OperationsWorkspace({
                 ? 'Overview'
                 : view === 'incidents'
                   ? 'Incidents'
-                  : 'Administration'}
+                  : view === 'administration'
+                    ? 'Administration'
+                    : 'Profile'}
             </p>
             <h1>
-              {view === 'administration'
-                ? 'Organization settings'
-                : view === 'incidents'
-                  ? 'Incidents'
-                  : 'Response overview'}
+              {view === 'profile'
+                ? 'Profile settings'
+                : view === 'administration'
+                  ? 'Organization settings'
+                  : view === 'incidents'
+                    ? 'Incidents'
+                    : 'Response overview'}
             </h1>
           </div>
           <div className="topbar-actions">
             <ThemeToggle compact />
-            {view !== 'administration' && (
+            {(view === 'overview' || view === 'incidents') && (
               <button className="primary-button" onClick={() => setShowCreate(true)} type="button">
                 <Plus size={17} /> New incident
               </button>
@@ -262,10 +304,24 @@ function OperationsWorkspace({
         </header>
 
         {view === 'overview' && (
-          <section className="status-strip">
+          <section
+            className={`status-strip connection-${connectionState}`}
+            role="status"
+            aria-live="polite"
+          >
             <span className="status-pulse" />
-            <strong>Live incident feed</strong>
-            <span>Updates appear as your team responds</span>
+            <strong>
+              {connectionState === 'live'
+                ? 'Live incident feed'
+                : connectionState === 'connecting'
+                  ? 'Connecting to live feed'
+                  : 'Reconnecting to live feed'}
+            </strong>
+            <span>
+              {connectionState === 'live'
+                ? 'Updates appear as your team responds'
+                : 'Your incidents remain available while we reconnect'}
+            </span>
           </section>
         )}
         {error === null ? null : (
@@ -277,12 +333,20 @@ function OperationsWorkspace({
           </div>
         )}
 
-        {view !== 'administration' ? (
+        {view === 'profile' ? (
+          <ProfileSettings
+            account={account}
+            onSaved={(updated) => {
+              onAccountChanged(updated);
+              void loadWorkspace();
+            }}
+          />
+        ) : view !== 'administration' ? (
           <IncidentDashboard
             incidents={incidents}
             members={members}
-            organizationName={membership.organizationName}
-            role={membership.role}
+            organizationName={membership?.organizationName ?? ''}
+            role={membership?.role ?? ''}
             query={query}
             onQueryChange={setQuery}
             onSelect={(incident) => setSelectedId(incident.id)}
@@ -294,24 +358,23 @@ function OperationsWorkspace({
           <AdministrationPanel
             organizationId={organizationId}
             members={members}
-            role={membership.role}
+            role={membership?.role ?? 'REPORTER'}
             onMembersChanged={loadWorkspace}
           />
         )}
       </main>
 
-      {showCreate ? (
-        <CreateIncident
-          organizationId={organizationId}
-          onClose={() => setShowCreate(false)}
-          onCreated={(incident) => {
-            setShowCreate(false);
-            setSelectedId(incident.id);
-            void loadWorkspace();
-          }}
-        />
-      ) : null}
-      {selectedId !== null ? (
+      <CreateIncident
+        open={showCreate}
+        organizationId={organizationId}
+        onClose={() => setShowCreate(false)}
+        onCreated={(incident) => {
+          setShowCreate(false);
+          setSelectedId(incident.id);
+          void loadWorkspace();
+        }}
+      />
+      {selectedId !== null && membership !== undefined ? (
         <IncidentDetail
           incident={selected}
           timeline={timeline}
@@ -403,12 +466,19 @@ function Sidebar(props: {
   const footer = (close?: () => void) => (
     <div className="sidebar-footer">
       <div className="user-card">
-        <span className="user-avatar">{initials(props.account.user.displayName)}</span>
+        <UserAvatar name={props.account.user.displayName} color={props.account.user.avatarColor} />
         <span>
           <strong>{props.account.user.displayName}</strong>
           <small>{props.account.user.email}</small>
         </span>
       </div>
+      <Link
+        className={`nav-link profile-link${props.view === 'profile' ? ' active' : ''}`}
+        href="/app/profile"
+        {...(close ? { onClick: close } : {})}
+      >
+        <UserRound size={18} /> Profile settings
+      </Link>
       <button
         className="nav-link logout"
         onClick={() => {
@@ -434,16 +504,16 @@ function Sidebar(props: {
           <MobileMenu title="Workspace menu">
             {(close) => (
               <div className="mobile-menu-body">
-                {organizationSwitcher(close)}
-                {navigation(close)}
+                {props.memberships.length > 0 && organizationSwitcher(close)}
+                {props.memberships.length > 0 && navigation(close)}
                 {footer(close)}
               </div>
             )}
           </MobileMenu>
         </div>
         <div className="sidebar-desktop-body">
-          {organizationSwitcher()}
-          {navigation()}
+          {props.memberships.length > 0 && organizationSwitcher()}
+          {props.memberships.length > 0 && navigation()}
           {footer()}
         </div>
       </div>
@@ -452,6 +522,7 @@ function Sidebar(props: {
 }
 
 function CreateIncident(props: {
+  open: boolean;
   organizationId: string;
   onClose: () => void;
   onCreated: (incident: Incident) => void;
@@ -460,12 +531,8 @@ function CreateIncident(props: {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
-    const dismiss = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', dismiss);
-    return () => window.removeEventListener('keydown', dismiss);
-  }, [onClose]);
+    if (props.open) setError(null);
+  }, [props.open]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -491,39 +558,57 @@ function CreateIncident(props: {
     }
   }
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <section className="dialog" role="dialog" aria-modal="true" aria-labelledby="create-title">
-        <button className="dialog-close" onClick={props.onClose} aria-label="Close" type="button">
-          <X size={20} />
-        </button>
-        <p className="eyebrow">Declare an incident</p>
-        <h2 id="create-title">Start the response</h2>
-        <form className="form-stack" onSubmit={(event) => void submit(event)}>
-          <Field label="Title" name="title" maxLength={200} autoFocus />
-          <div className="field">
-            <span>Severity</span>
-            <SelectControl
-              label="Severity"
-              name="severity"
-              defaultValue="SEV2"
-              options={severityLevels.map((severity) => ({
-                value: severity,
-                label: severityLabel(severity),
-              }))}
-            />
-          </div>
-          <label className="field">
-            <span>Description</span>
-            <textarea name="description" rows={6} required maxLength={10000} />
-          </label>
-          {error === null ? null : <p className="form-error">{error}</p>}
-          <button className="primary-button full" disabled={submitting} type="submit">
-            {submitting ? 'Creating…' : 'Create incident'}
-            <ArrowRight size={17} />
-          </button>
-        </form>
-      </section>
-    </div>
+    <Dialog.Root
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-backdrop" />
+        <Dialog.Content className="dialog create-dialog" aria-describedby={undefined}>
+          <Dialog.Close asChild>
+            <button className="dialog-close" aria-label="Close" type="button">
+              <X size={20} />
+            </button>
+          </Dialog.Close>
+          <p className="eyebrow">Declare an incident</p>
+          <Dialog.Title id="create-title">Start the response</Dialog.Title>
+          <p className="dialog-intro">
+            Give your team a clear starting point. You can update the incident as the response
+            unfolds.
+          </p>
+          <form className="form-stack" onSubmit={(event) => void submit(event)}>
+            <Field label="Title" name="title" maxLength={200} autoFocus />
+            <div className="field">
+              <span>Severity</span>
+              <SelectControl
+                label="Severity"
+                name="severity"
+                defaultValue="SEV2"
+                options={severityLevels.map((severity) => ({
+                  value: severity,
+                  label: severityLabel(severity),
+                }))}
+              />
+            </div>
+            <label className="field">
+              <span>Description</span>
+              <textarea name="description" rows={6} required maxLength={10000} />
+            </label>
+            {error === null ? null : <p className="form-error">{error}</p>}
+            <button className="primary-button full" disabled={submitting} type="submit">
+              {submitting ? 'Creating…' : 'Create incident'}
+              {submitting ? (
+                <RefreshCw className="is-spinning" size={17} aria-hidden="true" />
+              ) : (
+                <ArrowRight size={17} aria-hidden="true" />
+              )}
+            </button>
+          </form>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
@@ -709,24 +794,38 @@ function ToastStack(props: { toasts: RealtimeIncidentEvent[]; dismiss: (id: stri
   return (
     <div className="toast-stack" aria-live="polite">
       {props.toasts.map((toast) => (
-        <article className="toast" key={toast.eventId}>
-          <Siren size={18} />
-          <div>
-            <strong>{humanizeAction(toast.eventType)}</strong>
-            <p>
-              INC-{toast.referenceNumber} · {toast.title}
-            </p>
-          </div>
-          <button
-            onClick={() => props.dismiss(toast.eventId)}
-            aria-label="Dismiss notification"
-            type="button"
-          >
-            <X size={15} />
-          </button>
-        </article>
+        <IncidentToast toast={toast} dismiss={props.dismiss} key={toast.eventId} />
       ))}
     </div>
+  );
+}
+
+function IncidentToast({
+  toast,
+  dismiss,
+}: {
+  toast: RealtimeIncidentEvent;
+  dismiss: (id: string) => void;
+}) {
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(() => dismiss(toast.eventId), 180);
+    return () => window.clearTimeout(timer);
+  }, [dismiss, leaving, toast.eventId]);
+  return (
+    <article className={`toast${leaving ? ' is-leaving' : ''}`}>
+      <Siren size={18} />
+      <div>
+        <strong>{humanizeAction(toast.eventType)}</strong>
+        <p>
+          INC-{toast.referenceNumber} · {toast.title}
+        </p>
+      </div>
+      <button onClick={() => setLeaving(true)} aria-label="Dismiss notification" type="button">
+        <X size={15} />
+      </button>
+    </article>
   );
 }
 
@@ -774,6 +873,9 @@ function EmptyMembership({ account, onLoggedOut }: { account: Account; onLoggedO
       </span>
       <h1>No active organization</h1>
       <p>{account.user.email} does not have an active membership.</p>
+      <Link className="secondary-button" href="/app/profile">
+        Profile settings
+      </Link>
       <button className="primary-button" onClick={onLoggedOut} type="button">
         Sign out
       </button>

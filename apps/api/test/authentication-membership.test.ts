@@ -194,6 +194,34 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     expect(body.data.memberships).toHaveLength(1);
   });
 
+  it('updates only the authenticated profile with CSRF protection and validation', async () => {
+    const accessCookie = cookieValue(registeredCookies, 'incidentbase_access');
+    const csrfCookie = cookieValue(registeredCookies, 'incidentbase_csrf');
+    const csrfToken = csrfCookie.split('=')[1]!;
+    const profile = { displayName: 'Updated Owner', avatarColor: 'violet' };
+
+    await request(app).patch('/auth/me').send(profile).expect(403);
+    await request(app).patch('/auth/me').set('Cookie', accessCookie).send(profile).expect(403);
+    await request(app)
+      .patch('/auth/me')
+      .set('Cookie', [accessCookie, csrfCookie])
+      .set('x-csrf-token', csrfToken)
+      .send({ displayName: '', avatarColor: 'invalid' })
+      .expect(400);
+
+    const response = await request(app)
+      .patch('/auth/me')
+      .set('Cookie', [accessCookie, csrfCookie])
+      .set('x-csrf-token', csrfToken)
+      .send(profile)
+      .expect(200);
+    expect(response.body).toMatchObject({ data: { user: profile } });
+    const persisted = await database.user.findUniqueOrThrow({ where: { id: registeredUserId } });
+    expect(persisted).toMatchObject(profile);
+    const current = await request(app).get('/auth/me').set('Cookie', accessCookie).expect(200);
+    expect(current.body).toMatchObject({ data: { user: profile } });
+  });
+
   it('returns a stable conflict for duplicate registration', async () => {
     const response = await request(app)
       .post('/auth/register')

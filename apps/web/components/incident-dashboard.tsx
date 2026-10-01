@@ -146,7 +146,16 @@ export function IncidentDashboard({
                 <p className="panel-kicker">Current load</p>
                 <h2 id="severity-title">Severity mix</h2>
               </div>
-              <ArrowUpRight size={17} aria-hidden="true" />
+              {!sample && (
+                <Link
+                  className="panel-drilldown"
+                  href="/app/incidents"
+                  aria-label="Open incident queue"
+                  title="View incidents"
+                >
+                  <ArrowUpRight size={17} aria-hidden="true" />
+                </Link>
+              )}
             </div>
             <div className="severity-visual">
               <div

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 
 import { ThemeToggle } from '../../components/theme-toggle';
 import { AuthenticationScreen } from '../../components/authentication-screen';
+import { welcomeStorageKey } from '../../components/welcome-moment';
 
 export default function SignInPage() {
   const router = useRouter();
@@ -13,8 +14,9 @@ export default function SignInPage() {
         <ThemeToggle compact />
       </div>
       <AuthenticationScreen
-        onAuthenticated={(organizationId) => {
+        onAuthenticated={(organizationId, kind, name) => {
           if (organizationId) localStorage.setItem('incidentbase.organization', organizationId);
+          if (kind) sessionStorage.setItem(welcomeStorageKey, JSON.stringify({ kind, name }));
           router.replace('/app');
         }}
       />

@@ -90,6 +90,7 @@ model User {
   id                 String                   @id @default(uuid()) @db.Uuid
   email              String                   @unique
   displayName        String                   @map("display_name")
+  avatarColor        String                   @default("blue") @map("avatar_color")
   passwordHash       String?                  @map("password_hash")
   emailVerifiedAt    DateTime?                @map("email_verified_at") @db.Timestamptz(3)
   createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)

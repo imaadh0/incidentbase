@@ -7,6 +7,7 @@ import {
   registerRequestSchema,
   verificationRequestSchema,
   resendVerificationRequestSchema,
+  updateProfileRequestSchema,
 } from '@incidentbase/contracts';
 
 import { ApplicationError } from '../errors/application-error.js';
@@ -307,6 +308,17 @@ export function createAuthRouter(options: AuthRouterOptions): Router {
   router.get('/auth/me', async (request, response) => {
     const principal = await requirePrincipal(request, options.accessTokens);
     const account = await options.service.getAccount(principal.userId);
+    response.set('Cache-Control', 'no-store');
+    response.json({ data: account });
+  });
+
+  router.patch('/auth/me', async (request, response) => {
+    requireCsrf(request);
+    const principal = await requirePrincipal(request, options.accessTokens);
+    const body = updateProfileRequestSchema.safeParse(request.body);
+    if (!body.success) throw invalidRequest();
+    const account = await options.service.updateProfile(principal.userId, body.data);
+    response.set('Cache-Control', 'no-store');
     response.json({ data: account });
   });
 

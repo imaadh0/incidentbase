@@ -1,8 +1,9 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import * as React from 'react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ArrowRight, Bell, BookOpen, Copy, RefreshCw, Settings2, Users } from 'lucide-react';
+import { ArrowRight, Bell, BookOpen, Check, Copy, RefreshCw, Settings2, Users } from 'lucide-react';
 
 import { apiRequest, type Member, type Role } from '../lib/api';
 import { SelectControl } from './select-control';
@@ -53,6 +54,13 @@ export function AdministrationPanel(props: {
   const [hasMoreAudit, setHasMoreAudit] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [confirmation, setConfirmation] = useState<{
+    title: string;
+    description: string;
+    confirmLabel: string;
+    action: () => void;
+  } | null>(null);
   const [invitation, setInvitation] = useState<string | null>(null);
   const [invitationDelivery, setInvitationDelivery] = useState<'LINK' | 'SENT' | 'FAILED'>('LINK');
   const [copied, setCopied] = useState(false);
@@ -62,22 +70,29 @@ export function AdministrationPanel(props: {
   ]);
   const prefix = `/organizations/${props.organizationId}`;
 
-  const refresh = useCallback(async () => {
-    setMessage(null);
-    try {
-      if (section === 'members') await onMembersChanged();
-      if (section === 'policies') setPolicies(await apiRequest<PolicyList>(`${prefix}/policies`));
-      if (section === 'notifications')
-        setSettings(await apiRequest<NotificationSettings>(`${prefix}/notification-settings`));
-      if (section === 'audit') {
-        const entries = await apiRequest<AuditEntry[]>(`${prefix}/audit-logs`);
-        setAudit(entries);
-        setHasMoreAudit(entries.length === 50);
+  const refresh = useCallback(
+    async (manual = false) => {
+      if (manual) setRefreshing(true);
+      setMessage(null);
+      try {
+        if (section === 'members') await onMembersChanged();
+        if (section === 'policies') setPolicies(await apiRequest<PolicyList>(`${prefix}/policies`));
+        if (section === 'notifications')
+          setSettings(await apiRequest<NotificationSettings>(`${prefix}/notification-settings`));
+        if (section === 'audit') {
+          const entries = await apiRequest<AuditEntry[]>(`${prefix}/audit-logs`);
+          setAudit(entries);
+          setHasMoreAudit(entries.length === 50);
+        }
+        if (manual) setMessage('Updated just now.');
+      } catch (error: unknown) {
+        setMessage(error instanceof Error ? error.message : 'Could not load administration data.');
+      } finally {
+        if (manual) setRefreshing(false);
       }
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Could not load administration data.');
-    }
-  }, [prefix, onMembersChanged, section]);
+    },
+    [prefix, onMembersChanged, section],
+  );
 
   useEffect(() => {
     void refresh();
@@ -310,11 +325,18 @@ export function AdministrationPanel(props: {
                       type="button"
                       disabled={busy || (member.role === 'OWNER' && props.role !== 'OWNER')}
                       onClick={() => {
-                        if (!window.confirm(`Remove ${member.displayName} from this organization?`))
-                          return;
-                        void mutate(async () => {
-                          await apiRequest(`${prefix}/members/${member.id}`, { method: 'DELETE' });
-                        }, 'Member removed.');
+                        setConfirmation({
+                          title: `Remove ${member.displayName}?`,
+                          description:
+                            'They will lose access to this organization. Their incident history will remain available.',
+                          confirmLabel: 'Remove member',
+                          action: () =>
+                            void mutate(async () => {
+                              await apiRequest(`${prefix}/members/${member.id}`, {
+                                method: 'DELETE',
+                              });
+                            }, 'Member removed.'),
+                        });
                       }}
                     >
                       Remove
@@ -404,7 +426,9 @@ export function AdministrationPanel(props: {
                   </div>
                   <div className="admin-row-actions">
                     {policies.defaultPolicyId === policy.id ? (
-                      <span className="admin-tag">Default</span>
+                      <span className="admin-tag">
+                        <Check size={13} aria-hidden="true" /> Active default
+                      </span>
                     ) : !policy.archivedAt ? (
                       <button
                         type="button"
@@ -443,17 +467,18 @@ export function AdministrationPanel(props: {
                         type="button"
                         disabled={busy}
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Archive ${policy.name}? Existing incidents retain this revision.`,
-                            )
-                          )
-                            return;
-                          void mutate(async () => {
-                            await apiRequest(`${prefix}/policies/${policy.id}/archive`, {
-                              method: 'POST',
-                            });
-                          }, 'Policy archived.');
+                          setConfirmation({
+                            title: `Archive ${policy.name}?`,
+                            description:
+                              'Existing incidents retain this policy revision. New incidents will no longer use it.',
+                            confirmLabel: 'Archive policy',
+                            action: () =>
+                              void mutate(async () => {
+                                await apiRequest(`${prefix}/policies/${policy.id}/archive`, {
+                                  method: 'POST',
+                                });
+                              }, 'Policy archived.'),
+                          });
                         }}
                       >
                         Archive
@@ -657,8 +682,15 @@ export function AdministrationPanel(props: {
               <p className="panel-kicker">History</p>
               <h2>Organization audit</h2>
             </div>
-            <button className="admin-secondary" type="button" onClick={() => void refresh()}>
-              <RefreshCw size={15} /> Refresh
+            <button
+              className="admin-secondary"
+              type="button"
+              onClick={() => void refresh(true)}
+              disabled={refreshing}
+              aria-busy={refreshing}
+            >
+              <RefreshCw className={refreshing ? 'is-spinning' : ''} size={15} />{' '}
+              {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
           <div className="admin-rows">
@@ -691,6 +723,37 @@ export function AdministrationPanel(props: {
           )}
         </section>
       )}
+      <Dialog.Root
+        open={confirmation !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmation(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="dialog-backdrop" />
+          <Dialog.Content className="dialog confirm-dialog">
+            <Dialog.Title>{confirmation?.title}</Dialog.Title>
+            <Dialog.Description>{confirmation?.description}</Dialog.Description>
+            <div className="confirm-actions">
+              <Dialog.Close asChild>
+                <button className="admin-secondary" type="button">
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => {
+                  confirmation?.action();
+                  setConfirmation(null);
+                }}
+              >
+                {confirmation?.confirmLabel}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

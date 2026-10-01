@@ -204,6 +204,29 @@ test('mobile navigation and incident severity select remain usable', async ({ pa
   ).toBe(true);
 });
 
+test('a user can personalize a profile and keep it after refreshing', async ({ page }) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await register(page, 'Profile Owner', `profile-${suffix}@example.test`, `profile-${suffix}`);
+  await page.getByRole('link', { name: 'Profile settings' }).click();
+  await expect(page).toHaveURL(/\/app\/profile$/u);
+  await page.getByLabel('Display name').fill('Avery Response');
+  await page.getByRole('radio', { name: 'violet' }).check();
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByText('Profile saved.')).toBeVisible();
+  await expect(page.locator('.sidebar-footer .user-card strong')).toHaveText('Avery Response');
+  await expect(page.locator('.sidebar-footer .user-avatar')).toHaveAttribute(
+    'data-avatar-color',
+    'violet',
+  );
+  await page.reload();
+  await expect(page.getByLabel('Display name')).toHaveValue('Avery Response');
+  await expect(page.getByRole('radio', { name: 'violet' })).toBeChecked();
+  await expect(page.locator('.sidebar-footer .user-avatar')).toHaveAttribute(
+    'data-avatar-color',
+    'violet',
+  );
+});
+
 test('demo sidebar background continues to the bottom of long pages', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 480 });
   await page.goto('/demo');

@@ -14,6 +14,7 @@ import {
 } from 'react';
 
 import { ApiError, apiRequest, type Account, type InvitationPreview } from '../lib/api';
+import type { WelcomeKind } from './welcome-moment';
 
 type AuthMode = 'login' | 'register';
 type FieldName =
@@ -64,7 +65,7 @@ function validateField(name: FieldName, input: HTMLInputElement, mode: AuthMode)
 export function AuthenticationScreen({
   onAuthenticated,
 }: {
-  onAuthenticated: (organizationId?: string) => void;
+  onAuthenticated: (organizationId?: string, kind?: WelcomeKind, name?: string) => void;
 }) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [invitationToken, setInvitationToken] = useState<string | null>(null);
@@ -126,7 +127,7 @@ export function AuthenticationScreen({
           await apiRequest(`/invitations/${encodeURIComponent(invitationToken)}/accept`, {
             method: 'POST',
           });
-          onAuthenticated(invitation.organizationId);
+          onAuthenticated(invitation.organizationId, 'returning', account.user.displayName);
         } catch (caught: unknown) {
           setError(caught instanceof Error ? caught.message : 'Unable to accept the invitation.');
           setSubmitting(false);
@@ -209,7 +210,11 @@ export function AuthenticationScreen({
       if (invitationToken !== null && account.user.email !== invitation?.email) {
         throw new Error('This invitation belongs to another email address.');
       }
-      onAuthenticated(invitationToken !== null ? invitation?.organizationId : undefined);
+      onAuthenticated(
+        invitationToken !== null ? invitation?.organizationId : undefined,
+        'returning',
+        account.user.displayName,
+      );
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : 'Authentication failed.');
     } finally {
@@ -236,6 +241,8 @@ export function AuthenticationScreen({
         invitationToken !== null
           ? invitation?.organizationId
           : account.memberships[0]?.organizationId,
+        'new',
+        account.user.displayName,
       );
     } catch (caught: unknown) {
       setError(caught instanceof Error ? caught.message : 'Could not verify the code.');

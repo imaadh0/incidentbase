@@ -280,6 +280,14 @@ export class AuthenticationService {
     });
   }
 
+  public async updateProfile(
+    userId: string,
+    input: { displayName: string; avatarColor: string },
+  ): Promise<AccountView> {
+    await this.options.repository.updateProfile(userId, input.displayName, input.avatarColor);
+    return this.getAccount(userId);
+  }
+
   public async acceptInvitation(token: string, userId: string): Promise<AccountView> {
     await this.acceptInvitationForUser(token, userId);
     return this.getAccount(userId);

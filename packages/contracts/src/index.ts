@@ -11,6 +11,7 @@ export {
 export type { RealtimeIncidentEvent } from './realtime.js';
 export {
   PASSWORD_MIN_LENGTH,
+  avatarColorSchema,
   emailSchema,
   invitationRequestSchema,
   inviteeRegistrationRequestSchema,
@@ -22,6 +23,7 @@ export {
   registerRequestSchema,
   verificationRequestSchema,
   resendVerificationRequestSchema,
+  updateProfileRequestSchema,
 } from './auth.js';
 export type {
   InvitationRequest,

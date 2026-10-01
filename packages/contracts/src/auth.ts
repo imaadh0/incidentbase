@@ -3,6 +3,11 @@ import { z } from 'zod';
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(320));
 export const PASSWORD_MIN_LENGTH = 8;
 export const passwordSchema = z.string().min(PASSWORD_MIN_LENGTH).max(128);
+export const avatarColorSchema = z.enum(['blue', 'teal', 'violet', 'coral', 'amber', 'slate']);
+export const updateProfileRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+  avatarColor: avatarColorSchema,
+});
 export const organizationRoleSchema = z.enum(['OWNER', 'ADMIN', 'RESPONDER', 'REPORTER']);
 export const membershipStatusSchema = z.enum(['INVITED', 'ACTIVE', 'SUSPENDED']);
 

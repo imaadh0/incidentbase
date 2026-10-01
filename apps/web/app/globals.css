@@ -2610,6 +2610,636 @@ button.incident-link:hover span {
   }
 }
 
+/* Interaction language shared by the public site and workspace. */
+:root {
+  --accent-blue: #426fdb;
+  --accent-blue-soft: #dce7ff;
+  --motion-fast: 120ms;
+  --motion-normal: 220ms;
+  --motion-slow: 360ms;
+  --motion-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+[data-theme='dark'] {
+  --accent-blue: #80a9ff;
+  --accent-blue-soft: #172b51;
+}
+
+@keyframes ui-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ui-scale {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes ui-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ui-pulse {
+  50% {
+    box-shadow: 0 0 0 0.48rem color-mix(in srgb, var(--green) 5%, transparent);
+  }
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ui-sheen {
+  from {
+    background-position: 130% center;
+  }
+  to {
+    background-position: -30% center;
+  }
+}
+
+.main-content > .dashboard-content,
+.main-content > .administration-panel,
+.main-content > .profile-panel,
+.auth-card > *,
+.marketing-page main > * {
+  animation: ui-rise var(--motion-slow) var(--motion-out) both;
+}
+.auth-story {
+  background:
+    radial-gradient(
+      circle at 12% 80%,
+      color-mix(in srgb, var(--accent-blue) 11%, transparent),
+      transparent 40%
+    ),
+    linear-gradient(145deg, color-mix(in srgb, var(--accent-blue) 4%, var(--soft)), var(--soft));
+}
+.marketing-hero {
+  background: radial-gradient(
+    circle at 84% 10%,
+    color-mix(in srgb, var(--accent-blue) 9%, transparent),
+    transparent 40%
+  );
+}
+.primary-button,
+.hero-primary,
+.header-demo {
+  border-color: color-mix(in srgb, var(--accent-blue) 70%, #17294b);
+  background: linear-gradient(115deg, #426fdb, #274aa0);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent-blue) 10%, transparent);
+}
+[data-theme='dark'] .primary-button,
+[data-theme='dark'] .hero-primary,
+[data-theme='dark'] .header-demo {
+  background: linear-gradient(115deg, #5379d8, #35559e);
+  color: #fff;
+}
+.nav-link.active {
+  border-color: color-mix(in srgb, var(--accent-blue) 24%, var(--border));
+  background: color-mix(in srgb, var(--accent-blue) 7%, var(--raised));
+}
+.summary-card::after {
+  position: absolute;
+  top: -3.5rem;
+  right: -3.5rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent-blue) 11%, transparent),
+    transparent 70%
+  );
+  content: '';
+  pointer-events: none;
+}
+.dashboard-metrics > *,
+.dashboard-overview > *,
+.admin-grid > * {
+  animation: ui-rise var(--motion-slow) var(--motion-out) both;
+}
+.dashboard-metrics > :nth-child(2),
+.dashboard-overview > :nth-child(2),
+.admin-grid > :nth-child(2) {
+  animation-delay: 55ms;
+}
+.dashboard-metrics > :nth-child(3) {
+  animation-delay: 110ms;
+}
+
+.primary-button,
+.secondary-button,
+.admin-secondary,
+.nav-link,
+.admin-tabs button,
+.select-trigger,
+.icon-button,
+.theme-toggle,
+.hero-primary,
+.hero-secondary,
+.header-demo,
+.dialog-close,
+.mobile-menu-button,
+.queue-count,
+.panel-drilldown {
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-normal) ease,
+    transform var(--motion-fast) var(--motion-out);
+}
+.primary-button:not(:disabled):hover,
+.secondary-button:not(:disabled):hover,
+.admin-secondary:not(:disabled):hover,
+.hero-primary:hover,
+.hero-secondary:hover,
+.header-demo:hover,
+.panel-drilldown:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-blue) 13%, transparent);
+}
+.primary-button:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.admin-secondary:not(:disabled):active,
+.hero-primary:active,
+.hero-secondary:active,
+.panel-drilldown:active {
+  transform: translateY(0) scale(0.98);
+}
+.nav-link:hover,
+.admin-tabs button:hover {
+  transform: translateX(2px);
+}
+.field input,
+.field textarea,
+.search-box {
+  transition:
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-normal) ease,
+    background var(--motion-normal) ease;
+}
+.field input:focus,
+.field textarea:focus,
+.search-box:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 14%, transparent);
+}
+.incident-table tbody tr,
+.summary-card,
+.dash-panel {
+  transition:
+    background var(--motion-normal) ease,
+    border-color var(--motion-normal) ease,
+    box-shadow var(--motion-normal) ease;
+}
+.summary-card:hover,
+.dash-panel:hover {
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--text) 7%, transparent);
+}
+.incident-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-blue) 5%, var(--panel));
+}
+
+.queue-heading-actions > .queue-count,
+.queue-heading-actions > .admin-secondary {
+  display: inline-flex;
+  width: 10.8rem;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.7rem;
+  text-align: center;
+}
+.queue-heading-actions > .admin-secondary {
+  white-space: nowrap;
+}
+.panel-drilldown {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--panel);
+  color: var(--muted);
+}
+.panel-drilldown:hover {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+.status-pulse {
+  animation: ui-pulse 2.4s ease-in-out infinite;
+}
+.connection-connecting .status-pulse,
+.connection-reconnecting .status-pulse {
+  background: var(--orange);
+  box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--orange) 12%, transparent);
+}
+.connection-reconnecting strong,
+.connection-connecting strong {
+  color: var(--orange);
+}
+.activity-bar {
+  transition:
+    height var(--motion-slow) var(--motion-out),
+    background var(--motion-normal) ease;
+}
+.severity-ring {
+  transition:
+    background var(--motion-slow) ease,
+    transform var(--motion-normal) var(--motion-out);
+}
+.severity-panel:hover .severity-ring {
+  transform: scale(1.025);
+}
+
+.dialog-backdrop[data-state='open'] {
+  animation: ui-fade var(--motion-normal) ease both;
+}
+.dialog-backdrop[data-state='closed'] {
+  animation: ui-fade var(--motion-fast) ease reverse both;
+}
+.dialog[data-state='open'] {
+  animation: ui-scale var(--motion-slow) var(--motion-out) both;
+}
+.dialog[data-state='closed'] {
+  animation: ui-scale var(--motion-fast) ease reverse both;
+}
+.create-dialog {
+  position: fixed;
+  z-index: 51;
+  top: 50%;
+  left: 50%;
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: min(92dvh, 52rem);
+  overflow-y: auto;
+  transform: translate(-50%, -50%);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border-color: color-mix(in srgb, var(--accent-blue) 18%, var(--border));
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.24),
+    0 0 0 1px color-mix(in srgb, var(--accent-blue) 10%, transparent);
+}
+.create-dialog[data-state='open'] {
+  animation: ui-fade var(--motion-normal) ease both;
+}
+.create-dialog > .eyebrow {
+  color: var(--accent-blue);
+}
+.create-dialog h2 {
+  margin: 0 2.7rem 0.35rem 0;
+  font-size: clamp(1.6rem, 3vw, 2.15rem);
+}
+.dialog-intro {
+  max-width: 37ch;
+  margin: 0 0 1.4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.create-dialog .form-stack {
+  gap: 1rem;
+}
+.create-dialog .primary-button.full {
+  min-height: 3.15rem;
+  margin-top: 0.3rem;
+  background: linear-gradient(115deg, #426fdb, #274aa0);
+}
+.create-dialog .primary-button.full:hover {
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--accent-blue) 22%, transparent);
+}
+.confirm-dialog {
+  position: fixed;
+  z-index: 51;
+  top: 50%;
+  left: 50%;
+  width: min(27rem, calc(100vw - 2rem));
+  transform: translate(-50%, -50%);
+  padding: 1.6rem;
+}
+.confirm-dialog[data-state='open'] {
+  animation: ui-fade var(--motion-normal) ease both;
+}
+.confirm-dialog h2 {
+  margin: 0 0 0.5rem;
+}
+.confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+.drawer {
+  animation: ui-rise var(--motion-slow) var(--motion-out) both;
+}
+.select-content[data-state='open'],
+.mobile-menu-panel[data-state='open'] {
+  animation: ui-scale var(--motion-normal) var(--motion-out) both;
+}
+.mobile-menu-overlay[data-state='open'] {
+  animation: ui-fade var(--motion-normal) ease both;
+}
+.select-content[data-state='closed'],
+.mobile-menu-panel[data-state='closed'] {
+  animation: ui-fade var(--motion-fast) ease reverse both;
+}
+
+.toast {
+  animation: ui-scale var(--motion-normal) var(--motion-out) both;
+  border-left: 3px solid var(--accent-blue);
+}
+.toast.is-leaving {
+  animation: ui-scale 180ms ease reverse both;
+}
+.admin-message,
+.profile-message,
+.error-banner,
+.form-error {
+  animation: ui-rise var(--motion-normal) var(--motion-out) both;
+}
+.is-spinning {
+  animation: ui-spin 800ms linear infinite;
+}
+.admin-tag {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-color: color-mix(in srgb, var(--green) 35%, var(--border));
+  background: color-mix(in srgb, var(--green) 11%, var(--panel));
+  color: var(--green);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.user-avatar,
+.avatar-swatch {
+  --avatar-hue: #426fdb;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--avatar-hue) 74%, white),
+    var(--avatar-hue)
+  );
+  color: #fff;
+}
+[data-avatar-color='teal'] {
+  --avatar-hue: #168f92;
+}
+[data-avatar-color='violet'] {
+  --avatar-hue: #765bd5;
+}
+[data-avatar-color='coral'] {
+  --avatar-hue: #d36d74;
+}
+[data-avatar-color='amber'] {
+  --avatar-hue: #a86d28;
+}
+[data-avatar-color='slate'] {
+  --avatar-hue: #526777;
+}
+.profile-panel {
+  width: min(42rem, 100%);
+  margin: 1rem 0;
+}
+.profile-form {
+  display: grid;
+  gap: 1.45rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.7rem;
+  background: linear-gradient(
+    125deg,
+    var(--soft),
+    color-mix(in srgb, var(--accent-blue) 7%, var(--panel))
+  );
+  padding: 1.1rem;
+}
+.profile-preview > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.profile-preview strong {
+  overflow-wrap: anywhere;
+}
+.profile-preview span:last-child {
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.profile-avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
+.avatar-colors {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.avatar-colors legend {
+  margin-bottom: 0.7rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.avatar-colors > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.avatar-choice {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.avatar-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.avatar-swatch {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 2px solid var(--panel);
+  border-radius: 0.7rem;
+  box-shadow: 0 0 0 1px var(--border);
+  transition:
+    transform var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+.avatar-choice:hover .avatar-swatch {
+  transform: translateY(-3px);
+}
+.avatar-choice input:checked + .avatar-swatch {
+  box-shadow: 0 0 0 2px var(--accent-blue);
+}
+.avatar-choice input:focus-visible + .avatar-swatch {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 3px;
+}
+.profile-message {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.profile-message.success {
+  color: var(--green);
+}
+.profile-message.error {
+  color: var(--red);
+}
+.profile-form > .primary-button {
+  justify-self: start;
+}
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  backdrop-filter: blur(8px);
+  animation: ui-fade 240ms ease both;
+}
+.welcome-overlay.is-leaving {
+  animation: ui-fade 240ms ease reverse both;
+}
+.welcome-card {
+  display: grid;
+  justify-items: start;
+  width: min(29rem, 100%);
+  gap: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 26%, var(--border));
+  border-radius: 1rem;
+  background:
+    radial-gradient(
+      circle at 90% 0%,
+      color-mix(in srgb, var(--accent-blue) 20%, transparent),
+      transparent 65%
+    ),
+    var(--panel);
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.18);
+  animation: ui-scale var(--motion-slow) var(--motion-out) both;
+}
+.welcome-mark {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.8rem;
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+}
+.welcome-kicker {
+  color: var(--accent-blue);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.welcome-card > strong {
+  font-size: clamp(1.75rem, 5vw, 2.6rem);
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+}
+.welcome-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.welcome-card button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--accent-blue);
+  padding: 0;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.welcome-card button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 40rem) {
+  .topbar-profile,
+  .topbar-administration {
+    flex-wrap: nowrap;
+  }
+  .topbar-profile .topbar-actions,
+  .topbar-administration .topbar-actions {
+    width: auto;
+    flex: 0 0 auto;
+  }
+  .queue-heading-actions {
+    width: 100%;
+  }
+  .queue-heading-actions > .queue-count,
+  .queue-heading-actions > .admin-secondary {
+    width: min(50%, 10.8rem);
+    flex: 1 1 0;
+  }
+  .create-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    padding: 1.25rem;
+  }
+  .profile-form {
+    padding: 1.1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Full-height workspace rail and responsive navigation. */
 html {
   scrollbar-gutter: stable;

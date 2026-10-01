@@ -23,6 +23,12 @@ describe('incident dashboard', () => {
     expect(markup).toContain('Active incidents');
     expect(markup).toContain('>03</strong>');
     expect(markup).toContain('Sample data');
+    expect(markup).toContain('>Critical</span>');
+    expect(markup).toContain('>High</span>');
+    expect(markup).toContain('>Medium</span>');
+    expect(markup).toContain('>Low</span>');
+    expect(markup).toContain('severity severity-sev1');
+    expect(markup).not.toContain('>SEV1</span>');
     expect(markup).not.toContain('Create incident');
   });
 

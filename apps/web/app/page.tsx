@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { IncidentDashboard } from '../components/incident-dashboard';
 import { ThemeToggle } from '../components/theme-toggle';
 import { demoIncidents, demoMembers } from '../lib/demo-data';
+import { severityLabel } from '../lib/severity';
 
 export default function LandingPage() {
   return (
@@ -108,11 +109,11 @@ export default function LandingPage() {
                   <small>INCIDENT QUEUE</small>
                   <span>
                     INC-1042 <b>API latency in primary region</b>
-                    <em>SEV1</em>
+                    <em>{severityLabel('SEV1')}</em>
                   </span>
                   <span>
                     INC-1041 <b>Checkout queue processing delay</b>
-                    <em>SEV2</em>
+                    <em>{severityLabel('SEV2')}</em>
                   </span>
                 </div>
               </div>

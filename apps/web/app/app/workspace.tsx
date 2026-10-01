@@ -47,6 +47,7 @@ import { AdministrationPanel } from '../../components/administration-panel';
 import { MobileMenu } from '../../components/mobile-menu';
 import { SelectControl } from '../../components/select-control';
 import { ThemeToggle } from '../../components/theme-toggle';
+import { severityLabel, severityLevels } from '../../lib/severity';
 
 export type WorkspaceView = 'overview' | 'incidents' | 'administration';
 
@@ -505,9 +506,9 @@ function CreateIncident(props: {
               label="Severity"
               name="severity"
               defaultValue="SEV2"
-              options={(['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const).map((severity) => ({
+              options={severityLevels.map((severity) => ({
                 value: severity,
-                label: severity,
+                label: severityLabel(severity),
               }))}
             />
           </div>
@@ -740,7 +741,9 @@ function Field(props: InputHTMLAttributes<HTMLInputElement> & { label: string; n
 }
 
 function SeverityBadge({ severity }: { severity: IncidentSeverity }) {
-  return <span className={`severity severity-${severity.toLowerCase()}`}>{severity}</span>;
+  return (
+    <span className={`severity severity-${severity.toLowerCase()}`}>{severityLabel(severity)}</span>
+  );
 }
 
 function StatusBadge({ status }: { status: Incident['status'] }) {

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowUpRight, CircleDot, Clock3, Search, Siren } from 'lucide-react';
 
 import type { Incident, Member } from '../lib/api';
+import { severityLabel, severityLevels } from '../lib/severity';
 
 type Props = {
   incidents: Incident[];
@@ -38,7 +39,7 @@ export function IncidentDashboard({
 }: Props) {
   const active = incidents.filter((incident) => incident.status !== 'RESOLVED');
   const filtered = incidents.filter((incident) =>
-    `${incident.referenceNumber} ${incident.title} ${incident.status} ${incident.severity}`
+    `${incident.referenceNumber} ${incident.title} ${incident.status} ${incident.severity} ${severityLabel(incident.severity)}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
@@ -53,7 +54,7 @@ export function IncidentDashboard({
           .slice(0, 5)
       : filtered;
   const memberById = new Map(members.map((member) => [member.id, member.displayName]));
-  const severityCounts = (['SEV1', 'SEV2', 'SEV3', 'SEV4'] as const).map(
+  const severityCounts = severityLevels.map(
     (severity) => active.filter((incident) => incident.severity === severity).length,
   );
   const [sev1 = 0, sev2 = 0, sev3 = 0] = severityCounts;
@@ -151,7 +152,7 @@ export function IncidentDashboard({
               <div
                 className="severity-ring"
                 role="img"
-                aria-label={`Active incidents by severity: ${severityCounts.map((count, index) => `SEV${index + 1} ${count}`).join(', ')}`}
+                aria-label={`Active incidents by severity: ${severityLevels.map((severity, index) => `${severityLabel(severity)} ${severityCounts[index]}`).join(', ')}`}
                 style={{
                   background: active.length
                     ? `conic-gradient(var(--sev1) 0 ${percent(sev1, active.length)}%, var(--sev2) ${percent(sev1, active.length)}% ${percent(sev1 + sev2, active.length)}%, var(--sev3) ${percent(sev1 + sev2, active.length)}% ${percent(sev1 + sev2 + sev3, active.length)}%, var(--sev4) ${percent(sev1 + sev2 + sev3, active.length)}% 100%)`
@@ -164,11 +165,11 @@ export function IncidentDashboard({
                 </div>
               </div>
               <div className="severity-legend">
-                {severityCounts.map((count, index) => (
-                  <div key={index}>
+                {severityLevels.map((severity, index) => (
+                  <div key={severity}>
                     <span className={`legend-dot sev${index + 1}`} />
-                    <span>SEV{index + 1}</span>
-                    <strong>{count}</strong>
+                    <span>{severityLabel(severity)}</span>
+                    <strong>{severityCounts[index]}</strong>
                   </div>
                 ))}
               </div>
@@ -305,7 +306,9 @@ function SummaryCard({
 }
 
 export function SeverityBadge({ severity }: { severity: Incident['severity'] }) {
-  return <span className={`severity severity-${severity.toLowerCase()}`}>{severity}</span>;
+  return (
+    <span className={`severity severity-${severity.toLowerCase()}`}>{severityLabel(severity)}</span>
+  );
 }
 
 export function StatusBadge({ status }: { status: Incident['status'] }) {

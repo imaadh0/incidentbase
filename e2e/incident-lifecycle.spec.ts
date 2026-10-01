@@ -193,7 +193,7 @@ test('mobile navigation and incident severity select remain usable', async ({ pa
     width: document.documentElement.clientWidth,
   }));
   expect(afterSelect).toEqual(beforeSelect);
-  await page.getByRole('option', { name: 'SEV1' }).click();
+  await page.getByRole('option', { name: 'Critical' }).click();
   expect(
     await form.evaluate((element) => new FormData(element as HTMLFormElement).get('severity')),
   ).toBe('SEV1');

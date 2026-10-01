@@ -573,7 +573,7 @@ function CreateIncident(props: {
             </button>
           </Dialog.Close>
           <p className="eyebrow">Declare an incident</p>
-          <Dialog.Title id="create-title">Start the response</Dialog.Title>
+          <Dialog.Title>Start the response</Dialog.Title>
           <p className="dialog-intro">
             Give your team a clear starting point. You can update the incident as the response
             unfolds.

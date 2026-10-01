@@ -210,7 +210,8 @@ test('a user can personalize a profile and keep it after refreshing', async ({ p
   await page.getByRole('link', { name: 'Profile settings' }).click();
   await expect(page).toHaveURL(/\/app\/profile$/u);
   await page.getByLabel('Display name').fill('Avery Response');
-  await page.getByRole('radio', { name: 'violet' }).check();
+  await page.getByText('violet', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: 'violet' })).toBeChecked();
   await page.getByRole('button', { name: 'Save profile' }).click();
   await expect(page.getByText('Profile saved.')).toBeVisible();
   await expect(page.locator('.sidebar-footer .user-card strong')).toHaveText('Avery Response');

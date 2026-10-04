@@ -5,7 +5,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Redis } from 'ioredis';
 
-import { AccessTokenService, hashOpaqueToken, hashPassword } from '@incidentbase/auth';
+import {
+  AccessTokenService,
+  createOpaqueToken,
+  hashOpaqueToken,
+  hashPassword,
+} from '@incidentbase/auth';
 import { apiEnvironmentSchema, parseEnvironment } from '@incidentbase/config';
 import {
   AuthenticationRepository,
@@ -66,6 +71,7 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     lazyConnect: true,
   });
   const emails: Array<{ to: string; text: string }> = [];
+  const resetTokens: Array<{ email: string; token: string }> = [];
   let failEmail = false;
   const emailSender: EmailSender = {
     send(to, content) {
@@ -78,6 +84,7 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     audience: 'incidentbase-api',
     issuer: 'incidentbase',
     secret: 'api-test-secret-that-is-at-least-32-characters',
+    getAuthVersion: (userId) => repository.authVersion(userId),
   });
   const service = new AuthenticationService({
     accessTokens,
@@ -88,6 +95,17 @@ describeWithDatabase.sequential('authentication and membership API', () => {
       'api-test-secret-that-is-at-least-32-characters',
     ),
     emailSender,
+    passwordResetQueue: {
+      add: async (email) => {
+        const token = createOpaqueToken();
+        resetTokens.push({ email, token });
+        await repository.preparePasswordReset(
+          email,
+          hashOpaqueToken(token),
+          new Date(Date.now() + 30 * 60_000),
+        );
+      },
+    },
   });
   const environment = parseEnvironment('api', apiEnvironmentSchema, {
     ACCESS_TOKEN_TTL_SECONDS: '900',
@@ -124,7 +142,7 @@ describeWithDatabase.sequential('authentication and membership API', () => {
   });
 
   afterAll(async () => {
-    redis.disconnect();
+    await redis.quit();
     await runtimeDatabase.$disconnect();
     await database.$disconnect();
   });
@@ -738,5 +756,36 @@ describeWithDatabase.sequential('authentication and membership API', () => {
     expect(errorResponseSchema.parse(response.body as unknown).error.code).toBe(
       'LAST_OWNER_REQUIRED',
     );
+  });
+
+  it('resets a verified account without disclosure and rejects old sessions', async () => {
+    const unknown = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'unknown-reset@example.test' });
+    const known = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'registered@example.test' });
+    expect(unknown.status).toBe(202);
+    expect(known.status).toBe(202);
+    expect(unknown.body).toEqual(known.body);
+    const token = resetTokens.at(-1)?.token;
+    if (!token) throw new Error('Reset token not queued.');
+    await request(app)
+      .post('/auth/reset-password')
+      .send({ token, password: 'new-password-2026!' })
+      .expect(204);
+    await request(app)
+      .post('/auth/reset-password')
+      .send({ token, password: 'another-password-2026!' })
+      .expect(400);
+    await request(app).get('/auth/me').set('Cookie', registeredCookies).expect(401);
+    const oldLogin = await request(app)
+      .post('/auth/login')
+      .send({ email: 'registered@example.test', password: 'correct horse battery staple' });
+    expect(oldLogin.status).toBe(401);
+    await request(app)
+      .post('/auth/login')
+      .send({ email: 'registered@example.test', password: 'new-password-2026!' })
+      .expect(200);
   });
 });

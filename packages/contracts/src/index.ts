@@ -1,4 +1,5 @@
 export { healthStatusSchema } from './health.js';
+export { PASSWORD_RESET_QUEUE_NAME } from './password-reset.js';
 export type { HealthStatus } from './health.js';
 export { escalationJobPayloadSchema, jobEnvelopeSchema } from './jobs.js';
 export type { EscalationJobPayload, JobEnvelope } from './jobs.js';
@@ -16,6 +17,8 @@ export {
   invitationRequestSchema,
   inviteeRegistrationRequestSchema,
   loginRequestSchema,
+  forgotPasswordRequestSchema,
+  resetPasswordRequestSchema,
   membershipStatusSchema,
   membershipUpdateRequestSchema,
   organizationRoleSchema,
@@ -51,5 +54,10 @@ export type {
   ReassignIncidentRequest,
   UpdateIncidentRequest,
 } from './incidents.js';
-export { invitationEmail, verificationEmail, notificationEmail } from './email.js';
+export {
+  invitationEmail,
+  verificationEmail,
+  notificationEmail,
+  passwordResetEmail,
+} from './email.js';
 export type { EmailContent } from './email.js';

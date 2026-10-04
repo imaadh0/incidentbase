@@ -247,6 +247,33 @@ export class AuthenticationRepository {
     });
   }
 
+  public authVersion(userId: string): Promise<number | null> {
+    return this.withRuntimeRole(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ version: number | null }>>`
+        SELECT app.auth_version(${userId}::uuid) AS version
+      `;
+      return rows[0]?.version ?? null;
+    });
+  }
+
+  public preparePasswordReset(email: string, tokenHash: string, expiresAt: Date): Promise<boolean> {
+    return this.withRuntimeRole(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ prepared: boolean }>>`
+        SELECT app.auth_prepare_password_reset(${email}, ${tokenHash}, ${expiresAt}) AS prepared
+      `;
+      return rows[0]?.prepared ?? false;
+    });
+  }
+
+  public consumePasswordReset(tokenHash: string, passwordHash: string): Promise<string | null> {
+    return this.withRuntimeRole(async (transaction) => {
+      const rows = await transaction.$queryRaw<Array<{ user_id: string | null }>>`
+        SELECT app.auth_consume_password_reset(${tokenHash}, ${passwordHash}) AS user_id
+      `;
+      return rows[0]?.user_id ?? null;
+    });
+  }
+
   public acceptInvitation(
     tokenHash: string,
     userId: string,

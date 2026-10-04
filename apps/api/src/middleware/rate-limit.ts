@@ -77,7 +77,11 @@ export function createRateLimitMiddleware(options: {
               ? 'verify-email'
               : path === '/auth/resend-verification'
                 ? 'resend-verification'
-                : null;
+                : path === '/auth/forgot-password'
+                  ? 'forgot-password'
+                  : path === '/auth/reset-password'
+                    ? 'reset-password'
+                    : null;
       const creation = incidentCollection.exec(path);
       const command = incidentCommand.exec(path);
       if (authBucket === null && creation === null && command === null) return next();
@@ -95,13 +99,15 @@ export function createRateLimitMiddleware(options: {
       const limit =
         authBucket === 'login'
           ? 10
-          : authBucket === 'register'
-            ? 20
-            : authBucket !== null
-              ? 30
-              : creation !== null
-                ? 10
-                : 30;
+          : authBucket === 'forgot-password' || authBucket === 'reset-password'
+            ? 10
+            : authBucket === 'register'
+              ? 20
+              : authBucket !== null
+                ? 30
+                : creation !== null
+                  ? 10
+                  : 30;
       const windowMs = authBucket !== null ? 900_000 : 60_000;
       try {
         const result = await options.store.consume(key, limit, windowMs);
@@ -115,6 +121,24 @@ export function createRateLimitMiddleware(options: {
               statusCode: 429,
             }),
           );
+        }
+        const body: unknown = request.body;
+        const emailValue =
+          typeof body === 'object' && body !== null && 'email' in body ? body.email : undefined;
+        if (authBucket === 'forgot-password' && typeof emailValue === 'string') {
+          const normalized = emailValue.trim().toLowerCase();
+          const emailKey = `forgot-password:email:${createHash('sha256').update(normalized).digest('hex')}`;
+          const perEmail = await options.store.consume(emailKey, 3, 3_600_000);
+          if (!perEmail.allowed) {
+            response.setHeader('Retry-After', Math.ceil(perEmail.retryAfterMs / 1000).toString());
+            return next(
+              new ApplicationError({
+                code: 'RATE_LIMITED',
+                message: 'Too many requests. Please try again shortly.',
+                statusCode: 429,
+              }),
+            );
+          }
         }
         options.metrics?.rateLimitDecisions.inc({ bucket, outcome: 'allowed' });
       } catch (error: unknown) {

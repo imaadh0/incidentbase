@@ -51,7 +51,7 @@ import { MobileMenu } from '../../components/mobile-menu';
 import { SelectControl } from '../../components/select-control';
 import { ThemeToggle } from '../../components/theme-toggle';
 import { ProfileSettings } from '../../components/profile-settings';
-import { UserAvatar } from '../../components/user-avatar';
+import { avatarColors, UserAvatar, type AvatarColor } from '../../components/user-avatar';
 import {
   WelcomeMoment,
   welcomeStorageKey,
@@ -65,7 +65,11 @@ export function WorkspacePage({ view }: { view: WorkspaceView }) {
   const router = useRouter();
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
-  const [welcome, setWelcome] = useState<{ kind: WelcomeKind; name: string } | null>(null);
+  const [welcome, setWelcome] = useState<{
+    kind: WelcomeKind;
+    name: string;
+    workspaceName: string;
+  } | null>(null);
 
   const loadAccount = useCallback(async () => {
     try {
@@ -77,7 +81,19 @@ export function WorkspacePage({ view }: { view: WorkspaceView }) {
         try {
           const parsed = JSON.parse(stored) as { kind?: string; name?: string };
           if (parsed.kind === 'new' || parsed.kind === 'returning') {
-            setWelcome({ kind: parsed.kind, name: parsed.name ?? nextAccount.user.displayName });
+            const activeMemberships = nextAccount.memberships.filter(
+              (item) => item.status === 'ACTIVE',
+            );
+            const preferredId = preferredOrganization(activeMemberships);
+            setWelcome({
+              kind: parsed.kind,
+              name: parsed.name ?? nextAccount.user.displayName,
+              workspaceName:
+                activeMemberships.find((item) => item.organizationId === preferredId)
+                  ?.organizationName ??
+                activeMemberships[0]?.organizationName ??
+                'Workspace',
+            });
           }
         } catch {
           // Ignore stale session handoff data.
@@ -99,6 +115,16 @@ export function WorkspacePage({ view }: { view: WorkspaceView }) {
     if (!loading && account === null) router.replace('/sign-in');
   }, [account, loading, router]);
 
+  const avatarColor = account?.user.avatarColor;
+  useEffect(() => {
+    if (avatarColor === undefined) return;
+    const color = avatarColors.includes(avatarColor as AvatarColor) ? avatarColor : 'blue';
+    document.documentElement.dataset.actionTheme = color;
+    return () => {
+      delete document.documentElement.dataset.actionTheme;
+    };
+  }, [avatarColor]);
+
   if (loading || account === null) return <LoadingScreen />;
   return (
     <>
@@ -112,7 +138,12 @@ export function WorkspacePage({ view }: { view: WorkspaceView }) {
         }}
       />
       {welcome && (
-        <WelcomeMoment kind={welcome.kind} name={welcome.name} onDone={() => setWelcome(null)} />
+        <WelcomeMoment
+          kind={welcome.kind}
+          name={welcome.name}
+          workspaceName={welcome.workspaceName}
+          onDone={() => setWelcome(null)}
+        />
       )}
     </>
   );

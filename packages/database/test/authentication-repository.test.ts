@@ -156,4 +156,66 @@ describeWithDatabase.sequential('authentication database boundary', () => {
       status: MembershipStatus.ACTIVE,
     });
   });
+
+  it('consumes a reset once and invalidates the old password and sessions atomically', async () => {
+    await authentication.markEmailVerified(ids.owner);
+    await authentication.createRefreshSession({
+      expiresAt: new Date(Date.now() + 60_000),
+      familyId: randomUUID(),
+      organizationId: ids.organization,
+      sessionId: randomUUID(),
+      tokenHash: 'reset-test-refresh',
+      userId: ids.owner,
+    });
+    await expect(
+      authentication.preparePasswordReset(
+        'missing@example.test',
+        'unknown-reset',
+        new Date(Date.now() + 60_000),
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      authentication.preparePasswordReset(
+        'auth-owner@example.test',
+        'superseded-reset',
+        new Date(Date.now() + 60_000),
+      ),
+    ).resolves.toBe(true);
+    await authentication.preparePasswordReset(
+      'auth-owner@example.test',
+      'current-reset',
+      new Date(Date.now() + 60_000),
+    );
+    await expect(
+      authentication.consumePasswordReset('superseded-reset', 'new-hash'),
+    ).resolves.toBeNull();
+    const results = await Promise.all([
+      authentication.consumePasswordReset('current-reset', 'new-hash'),
+      authentication.consumePasswordReset('current-reset', 'another-hash'),
+    ]);
+    expect(results.filter((value) => value === ids.owner)).toHaveLength(1);
+    expect(results.filter((value) => value === null)).toHaveLength(1);
+    await expect(authentication.authVersion(ids.owner)).resolves.toBe(1);
+    await expect(
+      authentication.findLoginIdentity('auth-owner@example.test'),
+    ).resolves.toMatchObject({ passwordHash: 'new-hash' });
+    await expect(
+      authentication.rotateRefreshSession({
+        currentTokenHash: 'reset-test-refresh',
+        expiresAt: new Date(Date.now() + 60_000),
+        newSessionId: randomUUID(),
+        newTokenHash: 'reset-test-replacement',
+      }),
+    ).resolves.toMatchObject({ outcome: 'REUSED' });
+    await expect(
+      authentication.preparePasswordReset(
+        'auth-owner@example.test',
+        'expired-reset',
+        new Date(Date.now() - 1000),
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      authentication.consumePasswordReset('expired-reset', 'never-used'),
+    ).resolves.toBeNull();
+  });
 });

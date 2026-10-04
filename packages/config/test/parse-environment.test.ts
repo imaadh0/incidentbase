@@ -76,6 +76,7 @@ describe('parseEnvironment', () => {
       OTEL_ENABLED: 'false',
       REDIS_URL: 'redis://localhost:6379',
       METRICS_TOKEN: 'a-secure-test-token-with-32-characters',
+      WEB_ORIGIN: 'http://localhost:3000',
     });
 
     expect(result.ESCALATION_RECONCILIATION_INTERVAL_MS).toBe(30_000);

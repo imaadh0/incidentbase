@@ -8,6 +8,15 @@ services:
     depends_on:
       mail-capture:
         condition: service_healthy
+  worker:
+    environment:
+      WEB_ORIGIN: http://127.0.0.1:8080
+      RESEND_API_KEY: e2e-mail-capture-key
+      RESEND_FROM_EMAIL: invites@send.incidentbase.space
+      RESEND_API_ENDPOINT: http://mail-capture:8025/emails
+    depends_on:
+      mail-capture:
+        condition: service_healthy
   mail-capture:
     image: node:22-alpine
     command: ['node', '/app/mail-capture.mjs']

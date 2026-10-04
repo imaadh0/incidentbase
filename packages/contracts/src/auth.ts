@@ -28,6 +28,11 @@ export const loginRequestSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(128),
 });
+export const forgotPasswordRequestSchema = z.object({ email: emailSchema });
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/u),
+  password: passwordSchema,
+});
 
 export const invitationRequestSchema = z.object({
   email: emailSchema,

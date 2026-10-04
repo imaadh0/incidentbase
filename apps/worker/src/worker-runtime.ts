@@ -1,8 +1,10 @@
 import { Queue, Worker } from 'bullmq';
+import { z } from 'zod';
 import { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 
 import type { WorkerEnvironment } from '@incidentbase/config';
+import { PASSWORD_RESET_QUEUE_NAME } from '@incidentbase/contracts';
 import { createDatabaseClient, WorkerUnitOfWork } from '@incidentbase/database';
 import { createServiceMetrics, type TelemetryHandle } from '@incidentbase/observability';
 
@@ -15,6 +17,7 @@ import { NotificationDeliveryProcessor } from './notification-delivery.js';
 import { IncidentSummaryProcessor } from './incident-summary.js';
 import { registerShutdownHandlers } from './shutdown.js';
 import { startWorkerHealthServer } from './health-server.js';
+import { PasswordResetEmailProcessor } from './password-reset-email.js';
 
 export { JOB_QUEUE_NAME } from './queue.js';
 
@@ -75,6 +78,26 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
     concurrency: options.environment.WORKER_CONCURRENCY,
     connection,
   });
+  const resetProcessor = new PasswordResetEmailProcessor(database, {
+    apiKey: options.environment.RESEND_API_KEY,
+    from: options.environment.RESEND_FROM_EMAIL,
+    origin: options.environment.WEB_ORIGIN,
+    endpoint: options.environment.RESEND_API_ENDPOINT,
+  });
+  const resetWorker = new Worker(
+    PASSWORD_RESET_QUEUE_NAME,
+    async (job) => {
+      const payload = z.object({ email: z.email() }).parse(job.data);
+      await resetProcessor.send(payload.email);
+    },
+    { concurrency: 2, connection },
+  );
+  resetWorker.on('error', (error) =>
+    options.logger.error({ err: error }, 'Password reset worker error'),
+  );
+  resetWorker.on('failed', (job, error) =>
+    options.logger.error({ err: error, jobId: job?.id }, 'Password reset email failed'),
+  );
 
   worker.on('error', (error) => {
     options.logger.error({ err: error }, 'BullMQ worker error');
@@ -204,6 +227,7 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
       clearInterval(summaryTimer);
       await healthServer.close();
       await worker.close();
+      await resetWorker.close();
       await queue.close();
       await database.$disconnect();
       await connection.quit();
@@ -212,6 +236,7 @@ export async function startWorker(options: StartWorkerOptions): Promise<void> {
   });
 
   await worker.waitUntilReady();
+  await resetWorker.waitUntilReady();
   await reconcile();
   await relayOutbox();
   await processDeliveries();

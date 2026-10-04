@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Save } from 'lucide-react';
+import { Check, RefreshCw, Save } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 import { apiRequest, type Account } from '../lib/api';
@@ -50,7 +50,11 @@ export function ProfileSettings({
   }
 
   return (
-    <section className="dash-panel profile-panel" aria-labelledby="profile-title">
+    <section
+      className="dash-panel profile-panel"
+      aria-labelledby="profile-title"
+      data-action-theme={color}
+    >
       <div className="dash-panel-heading">
         <div>
           <p className="panel-kicker">Personal settings</p>
@@ -104,7 +108,12 @@ export function ProfileSettings({
           </p>
         )}
         <button className="primary-button" type="submit" disabled={busy}>
-          <Save size={16} aria-hidden="true" /> {busy ? 'Saving…' : 'Save profile'}
+          {busy ? (
+            <RefreshCw className="is-spinning" size={16} aria-hidden="true" />
+          ) : (
+            <Save size={16} aria-hidden="true" />
+          )}
+          {busy ? 'Saving…' : 'Save profile'}
         </button>
       </form>
     </section>

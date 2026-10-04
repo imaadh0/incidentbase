@@ -346,7 +346,12 @@ export function AuthenticationScreen({
                 </p>
               )}
               <button className="primary-button full" type="submit" disabled={submitting}>
-                Verify and continue <ArrowRight size={17} />
+                {submitting ? 'Verifying…' : 'Verify and continue'}
+                {submitting ? (
+                  <RefreshCw className="is-spinning" size={17} aria-hidden="true" />
+                ) : (
+                  <ArrowRight size={17} aria-hidden="true" />
+                )}
               </button>
             </form>
             <button
@@ -460,6 +465,11 @@ export function AuthenticationScreen({
                 }
                 {...fieldValidation('password')}
               />
+              {mode === 'login' && (
+                <Link className="auth-demo-link" href="/forgot-password">
+                  Forgot password?
+                </Link>
+              )}
               {mode === 'register' && (
                 <Field
                   label="Confirm password"
@@ -484,13 +494,21 @@ export function AuthenticationScreen({
                 type="submit"
               >
                 {submitting
-                  ? 'Working…'
+                  ? mode === 'login'
+                    ? 'Signing in…'
+                    : invitationToken !== null
+                      ? 'Creating account…'
+                      : 'Creating workspace…'
                   : mode === 'login'
                     ? 'Sign in'
                     : invitationToken !== null
                       ? 'Create account and join'
                       : 'Create workspace'}
-                <ArrowRight size={17} />
+                {submitting ? (
+                  <RefreshCw className="is-spinning" size={17} aria-hidden="true" />
+                ) : (
+                  <ArrowRight size={17} aria-hidden="true" />
+                )}
               </button>
             </form>
             <Link className="auth-demo-link" href="/demo">

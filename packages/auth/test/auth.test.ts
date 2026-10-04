@@ -32,6 +32,23 @@ describe('authentication primitives', () => {
     await expect(tokenService.verify(`${token}tampered`)).resolves.toBeNull();
   });
 
+  it('rejects access tokens after the account auth version changes', async () => {
+    const userId = '4cff43d8-2f5d-48d6-814e-7f13309f5d51';
+    let version = 0;
+    const service = new AccessTokenService({
+      audience: 'incidentbase-api',
+      issuer: 'incidentbase',
+      secret: 'test-secret-that-is-at-least-32-characters-long',
+      getAuthVersion: () => Promise.resolve(version),
+    });
+    const original = await service.issue(userId);
+    await expect(service.verify(original)).resolves.toEqual({ userId });
+    version = 1;
+    await expect(service.verify(original)).resolves.toBeNull();
+    const replacement = await service.issue(userId);
+    await expect(service.verify(replacement)).resolves.toEqual({ userId });
+  });
+
   it('generates opaque tokens and stores only deterministic hashes', () => {
     const token = createOpaqueToken();
 

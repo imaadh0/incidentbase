@@ -61,6 +61,7 @@ export const apiEnvironmentSchema = runtimeSchema
 
 export const workerEnvironmentSchema = runtimeSchema
   .extend({
+    WEB_ORIGIN: z.url(),
     DATABASE_URL: z.string().startsWith('postgresql://'),
     REDIS_URL: z.url(),
     METRICS_TOKEN: z.string().min(32),
@@ -93,6 +94,7 @@ export const workerEnvironmentSchema = runtimeSchema
       (value) => (value === '' ? undefined : value),
       z.email().optional(),
     ),
+    RESEND_API_ENDPOINT: z.url().optional(),
     GROQ_API_KEY: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().min(1).optional(),

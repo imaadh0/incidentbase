@@ -2614,10 +2614,10 @@ button.incident-link:hover span {
 :root {
   --accent-blue: #426fdb;
   --accent-blue-soft: #dce7ff;
-  --motion-fast: 120ms;
-  --motion-normal: 220ms;
-  --motion-slow: 360ms;
-  --motion-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-fast: 110ms;
+  --motion-normal: 190ms;
+  --motion-slow: 280ms;
+  --motion-out: cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 [data-theme='dark'] {
   --accent-blue: #80a9ff;
@@ -2627,7 +2627,7 @@ button.incident-link:hover span {
 @keyframes ui-rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -2674,9 +2674,8 @@ button.incident-link:hover span {
 .main-content > .dashboard-content,
 .main-content > .administration-panel,
 .main-content > .profile-panel,
-.auth-card > *,
-.marketing-page main > * {
-  animation: ui-rise var(--motion-slow) var(--motion-out) both;
+.auth-card > * {
+  animation: ui-rise var(--motion-normal) var(--motion-out) both;
 }
 .auth-story {
   background:
@@ -2727,20 +2726,6 @@ button.incident-link:hover span {
   content: '';
   pointer-events: none;
 }
-.dashboard-metrics > *,
-.dashboard-overview > *,
-.admin-grid > * {
-  animation: ui-rise var(--motion-slow) var(--motion-out) both;
-}
-.dashboard-metrics > :nth-child(2),
-.dashboard-overview > :nth-child(2),
-.admin-grid > :nth-child(2) {
-  animation-delay: 55ms;
-}
-.dashboard-metrics > :nth-child(3) {
-  animation-delay: 110ms;
-}
-
 .primary-button,
 .secondary-button,
 .admin-secondary,
@@ -2761,7 +2746,7 @@ button.incident-link:hover span {
     border-color var(--motion-fast) ease,
     color var(--motion-fast) ease,
     box-shadow var(--motion-normal) ease,
-    transform var(--motion-fast) var(--motion-out);
+    transform var(--motion-fast) ease;
 }
 .primary-button:not(:disabled):hover,
 .secondary-button:not(:disabled):hover,
@@ -2770,8 +2755,7 @@ button.incident-link:hover span {
 .hero-secondary:hover,
 .header-demo:hover,
 .panel-drilldown:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent-blue) 13%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-blue) 12%, transparent);
 }
 .primary-button:not(:disabled):active,
 .secondary-button:not(:disabled):active,
@@ -2779,11 +2763,63 @@ button.incident-link:hover span {
 .hero-primary:active,
 .hero-secondary:active,
 .panel-drilldown:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(1px);
 }
 .nav-link:hover,
 .admin-tabs button:hover {
-  transform: translateX(2px);
+  background: color-mix(in srgb, var(--accent-blue) 7%, var(--raised));
+}
+.primary-button:not(:disabled):hover,
+.hero-primary:hover,
+.header-demo:hover {
+  filter: brightness(1.06);
+}
+.primary-button:not(:disabled):active,
+.hero-primary:active,
+.header-demo:active {
+  filter: brightness(0.96);
+}
+:where(
+  .auth-tabs button,
+  .empty-state button,
+  .command-row button,
+  .admin-row button,
+  .toast button,
+  button.incident-link,
+  .select-item
+) {
+  transition:
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+.empty-state button:not(:disabled):hover,
+.command-row button:not(:disabled):hover,
+.admin-row button:not(:disabled):hover {
+  border-color: color-mix(in srgb, var(--accent-blue) 32%, var(--border));
+  background: color-mix(in srgb, var(--accent-blue) 7%, var(--raised));
+}
+.empty-state button:not(:disabled):active,
+.command-row button:not(:disabled):active,
+.admin-row button:not(:disabled):active,
+.auth-tabs button:active,
+.theme-toggle:active,
+.dialog-close:active,
+.select-trigger:active {
+  transform: translateY(1px);
+}
+.toast button:hover {
+  color: var(--text);
+}
+.select-item[data-highlighted] {
+  background: color-mix(in srgb, var(--accent-blue) 9%, var(--raised));
+}
+.primary-button:disabled,
+.secondary-button:disabled,
+.admin-secondary:disabled {
+  filter: saturate(0.75);
 }
 .field input,
 .field textarea,
@@ -2799,17 +2835,8 @@ button.incident-link:hover span {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 14%, transparent);
 }
-.incident-table tbody tr,
-.summary-card,
-.dash-panel {
-  transition:
-    background var(--motion-normal) ease,
-    border-color var(--motion-normal) ease,
-    box-shadow var(--motion-normal) ease;
-}
-.summary-card:hover,
-.dash-panel:hover {
-  box-shadow: 0 12px 34px color-mix(in srgb, var(--text) 7%, transparent);
+.incident-table tbody tr {
+  transition: background var(--motion-normal) ease;
 }
 .incident-table tbody tr:hover {
   background: color-mix(in srgb, var(--accent-blue) 5%, var(--panel));
@@ -2965,11 +2992,11 @@ button.incident-link:hover span {
 }
 
 .toast {
-  animation: ui-scale var(--motion-normal) var(--motion-out) both;
+  animation: ui-rise var(--motion-normal) var(--motion-out) both;
   border-left: 3px solid var(--accent-blue);
 }
 .toast.is-leaving {
-  animation: ui-scale 180ms ease reverse both;
+  animation: ui-rise 150ms ease-in reverse both;
 }
 .admin-message,
 .profile-message,
@@ -3129,77 +3156,245 @@ button.incident-link:hover span {
   position: fixed;
   inset: 0;
   z-index: 160;
-  display: grid;
-  place-items: center;
-  padding: 1.25rem;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--bg) 65%, transparent);
-  backdrop-filter: blur(8px);
-  animation: ui-fade 240ms ease both;
+  background: color-mix(in srgb, var(--bg) 76%, transparent);
+  backdrop-filter: blur(5px);
 }
-.welcome-overlay.is-leaving {
-  animation: ui-fade 240ms ease reverse both;
+.welcome-overlay[data-state='open'] {
+  animation: ui-fade 240ms ease-out both;
+}
+.welcome-overlay[data-state='closed'] {
+  animation: ui-fade 180ms ease-in reverse both;
 }
 .welcome-card {
-  display: grid;
-  justify-items: start;
-  width: min(29rem, 100%);
-  gap: 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--accent-blue) 26%, var(--border));
+  position: fixed;
+  z-index: 161;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: min(41rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  flex-direction: column;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 20%, var(--border));
   border-radius: 1rem;
-  background:
-    radial-gradient(
-      circle at 90% 0%,
-      color-mix(in srgb, var(--accent-blue) 20%, transparent),
-      transparent 65%
-    ),
-    var(--panel);
-  padding: clamp(1.5rem, 5vw, 2.5rem);
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.18);
-  animation: ui-scale var(--motion-slow) var(--motion-out) both;
+  background: var(--panel);
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.28);
+  transform: translate(-50%, -50%);
 }
-.welcome-mark {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  place-items: center;
-  border-radius: 0.8rem;
-  background: var(--accent-blue-soft);
-  color: var(--accent-blue);
+.welcome-card[data-state='open'] {
+  animation: welcome-enter 220ms var(--motion-out) both;
 }
-.welcome-kicker {
-  color: var(--accent-blue);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.welcome-card[data-state='closed'] {
+  animation: welcome-exit 160ms ease-in both;
 }
-.welcome-card > strong {
-  font-size: clamp(1.75rem, 5vw, 2.6rem);
-  letter-spacing: -0.05em;
-  line-height: 1.1;
+@keyframes welcome-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
-.welcome-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.86rem;
+@keyframes welcome-exit {
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 6px));
+  }
 }
-.welcome-card button {
+@keyframes welcome-line-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes welcome-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes welcome-control-in {
+  from {
+    opacity: 0.7;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.welcome-card[data-state='open'] .welcome-rule {
+  transform-origin: left center;
+  animation: welcome-line-draw 250ms var(--motion-out) 90ms both;
+}
+.welcome-card[data-state='open'] .welcome-kicker {
+  animation: welcome-copy-in 170ms var(--motion-out) 140ms both;
+}
+.welcome-card[data-state='open'] .welcome-body h2 {
+  animation: welcome-copy-in 230ms var(--motion-out) 190ms both;
+}
+.welcome-card[data-state='open'] .welcome-body > p:last-child {
+  animation: welcome-copy-in 190ms var(--motion-out) 260ms both;
+}
+.welcome-card[data-state='open'] .welcome-enter {
+  animation: welcome-control-in 170ms var(--motion-out) 310ms both;
+}
+.welcome-topline,
+.welcome-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.welcome-topline {
+  border-bottom: 1px solid var(--border-soft);
+  padding: 1rem clamp(1.25rem, 4vw, 2rem);
+}
+.welcome-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.9rem;
-  border: 0;
-  background: transparent;
-  color: var(--accent-blue);
-  padding: 0;
-  font-weight: 700;
-  cursor: pointer;
-  pointer-events: auto;
+  gap: 0.55rem;
+  font-size: 0.83rem;
+  font-weight: 750;
+  letter-spacing: -0.025em;
 }
-.welcome-card button:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.welcome-brand svg {
+  color: var(--accent-blue);
+}
+.welcome-index {
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--subtle);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.welcome-body {
+  padding: clamp(2rem, 7vw, 3.5rem) clamp(1.25rem, 4vw, 2rem);
+}
+.welcome-rule {
+  display: block;
+  width: 2rem;
+  height: 2px;
+  margin-bottom: 1.4rem;
+  border-radius: 2px;
+  background: var(--accent-blue);
+}
+.welcome-kicker {
+  margin: 0 0 0.65rem;
+  color: var(--accent-blue);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+.welcome-body h2 {
+  max-width: 15ch;
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 690;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+}
+.welcome-body > p:last-child {
+  max-width: 40ch;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.welcome-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-soft);
+  padding: 1rem clamp(1.25rem, 4vw, 2rem);
+}
+.welcome-enter {
+  display: inline-flex;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent-blue) 68%, #162f62);
+  border-radius: 0.5rem;
+  background: #315cc4;
+  color: #fff;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 720;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    box-shadow 150ms ease,
+    transform 120ms ease;
+}
+.welcome-enter:hover {
+  background: #274ea9;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent-blue) 20%, transparent);
+}
+.welcome-enter:active {
+  transform: translateY(1px);
+}
+.welcome-enter svg {
+  transition: transform 120ms ease;
+}
+.welcome-enter:hover svg {
+  transform: translateX(2px);
+}
+
+[data-action-theme='blue'] {
+  --action-solid: #315cc4;
+  --action-deep: #244a9d;
+}
+[data-action-theme='teal'] {
+  --action-solid: #0d716f;
+  --action-deep: #075653;
+}
+[data-action-theme='violet'] {
+  --action-solid: #6542b6;
+  --action-deep: #4b3090;
+}
+[data-action-theme='coral'] {
+  --action-solid: #ad4355;
+  --action-deep: #862f42;
+}
+[data-action-theme='amber'] {
+  --action-solid: #855510;
+  --action-deep: #673e08;
+}
+[data-action-theme='slate'] {
+  --action-solid: #4a5c70;
+  --action-deep: #334559;
+}
+html[data-action-theme] .primary-button,
+html[data-action-theme] .create-dialog .primary-button.full,
+.profile-panel[data-action-theme] .primary-button,
+html[data-action-theme] .welcome-enter {
+  border-color: var(--action-deep);
+  background: linear-gradient(115deg, var(--action-solid), var(--action-deep));
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--action-solid) 18%, transparent);
+}
+html[data-action-theme] .welcome-enter:hover {
+  background: linear-gradient(115deg, var(--action-solid), var(--action-deep));
+  filter: brightness(1.06);
+}
+@media (max-width: 32rem) {
+  .welcome-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .welcome-enter {
+    width: 100%;
+  }
 }
 
 @media (max-width: 40rem) {

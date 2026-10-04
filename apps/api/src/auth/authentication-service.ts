@@ -63,10 +63,28 @@ interface AuthenticationServiceOptions {
   repository: AuthenticationRepository;
   pendingRegistrations?: PendingRegistrationStore;
   emailSender?: EmailSender;
+  passwordResetQueue?: { add(email: string): Promise<void> };
+  onPasswordReset?: (userId: string) => Promise<void>;
 }
 
 export class AuthenticationService {
   public constructor(private readonly options: AuthenticationServiceOptions) {}
+
+  public requestPasswordReset(email: string): Promise<void> {
+    if (!this.options.passwordResetQueue)
+      throw new Error('Password reset delivery is unavailable.');
+    return this.options.passwordResetQueue.add(email);
+  }
+
+  public async resetPassword(token: string, password: string): Promise<boolean> {
+    const userId = await this.options.repository.consumePasswordReset(
+      hashOpaqueToken(token),
+      await hashPassword(password),
+    );
+    if (userId === null) return false;
+    await this.options.onPasswordReset?.(userId);
+    return true;
+  }
 
   public async startRegistration(
     input: {

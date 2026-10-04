@@ -33,6 +33,7 @@ interface RealtimeGatewayOptions {
 
 export interface RealtimeGateway {
   close(): Promise<void>;
+  disconnectUser(userId: string): Promise<void>;
 }
 
 export async function createRealtimeGateway(
@@ -151,6 +152,10 @@ export async function createRealtimeGateway(
   }
 
   return {
+    disconnectUser(userId: string) {
+      io.in(userRoom(userId)).disconnectSockets(true);
+      return Promise.resolve();
+    },
     close: async () => {
       await io.close();
       await Promise.all([publisher.quit(), adapterSubscriber.quit(), eventSubscriber.quit()]);

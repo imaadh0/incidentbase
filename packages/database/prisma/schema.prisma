@@ -92,12 +92,14 @@ model User {
   displayName        String                   @map("display_name")
   avatarColor        String                   @default("blue") @map("avatar_color")
   passwordHash       String?                  @map("password_hash")
+  authVersion        Int                      @default(0) @map("auth_version")
   emailVerifiedAt    DateTime?                @map("email_verified_at") @db.Timestamptz(3)
   createdAt          DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships        OrganizationMembership[]
   invitationsCreated OrganizationInvitation[] @relation("InvitationCreator")
   refreshSessions    RefreshSession[]
+  passwordResetToken PasswordResetToken?
 
   @@map("users")
 }
@@ -189,6 +191,16 @@ model RefreshSession {
   @@index([userId])
   @@index([userId, familyId])
   @@map("refresh_sessions")
+}
+
+model PasswordResetToken {
+  userId    String   @id @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 model EscalationPolicy {

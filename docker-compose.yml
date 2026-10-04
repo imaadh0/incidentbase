@@ -128,6 +128,7 @@ services:
         condition: service_started
     environment:
       NODE_ENV: production
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql://incidentbase_worker_app:local-worker-password-change-me@postgres:5432/incidentbase}
       REDIS_URL: redis://redis:6379
@@ -144,6 +145,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      RESEND_API_ENDPOINT: ${RESEND_API_ENDPOINT:-https://api.resend.com/emails}
       GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
       GROQ_TIMEOUT_MS: ${GROQ_TIMEOUT_MS:-8000}
       SUMMARY_INTERVAL_MS: ${SUMMARY_INTERVAL_MS:-1000}

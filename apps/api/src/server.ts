@@ -10,12 +10,15 @@ import {
 } from '@incidentbase/database';
 import type { Logger } from 'pino';
 import { Redis } from 'ioredis';
+import { Queue } from 'bullmq';
+import { PASSWORD_RESET_QUEUE_NAME } from '@incidentbase/contracts';
 
 import { createApp } from './create-app.js';
 import { registerShutdownHandlers } from './shutdown.js';
 import { AuthenticationService } from './auth/authentication-service.js';
 import { authenticateRequest } from './auth/request-authentication.js';
 import { createRealtimeGateway } from './realtime/realtime-gateway.js';
+import type { RealtimeGateway } from './realtime/realtime-gateway.js';
 import { RedisRateLimitStore } from './middleware/rate-limit.js';
 import { ResendEmailSender } from './email/sender.js';
 import { PendingRegistrationStore } from './auth/pending-registration.js';
@@ -40,16 +43,45 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
   rateLimitRedis.on('error', () => options.logger.warn('Rate-limit Redis connection error'));
   await rateLimitRedis.connect();
   await rateLimitRedis.ping();
+  const repository = new AuthenticationRepository(database);
+  const passwordResetRedis = new Redis(options.environment.REDIS_URL, {
+    maxRetriesPerRequest: null,
+  });
+  passwordResetRedis.on('error', (error) => {
+    options.logger.warn({ err: error }, 'Password reset queue Redis connection error');
+  });
+  const passwordResetQueue = new Queue(PASSWORD_RESET_QUEUE_NAME, {
+    connection: passwordResetRedis,
+  });
+  const realtimeRef: { current?: RealtimeGateway } = {};
   const accessTokens = new AccessTokenService({
     audience: options.environment.AUTH_AUDIENCE,
     expiresInSeconds: options.environment.ACCESS_TOKEN_TTL_SECONDS,
     issuer: options.environment.AUTH_ISSUER,
     secret: options.environment.JWT_SECRET,
+    getAuthVersion: (userId) => repository.authVersion(userId),
   });
   const authentication = new AuthenticationService({
     accessTokens,
     refreshTokenTtlSeconds: options.environment.REFRESH_TOKEN_TTL_SECONDS,
-    repository: new AuthenticationRepository(database),
+    repository,
+    passwordResetQueue: {
+      add: async (email) => {
+        await passwordResetQueue.add(
+          'send',
+          { email },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 5_000 },
+            removeOnComplete: true,
+            removeOnFail: { age: 86_400 },
+          },
+        );
+      },
+    },
+    onPasswordReset: async (userId) => {
+      await realtimeRef.current?.disconnectUser(userId);
+    },
     pendingRegistrations: new PendingRegistrationStore(
       rateLimitRedis,
       options.environment.JWT_SECRET,
@@ -88,7 +120,7 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     },
   });
   const server = createServer(app);
-  const realtime = await createRealtimeGateway({
+  realtimeRef.current = await createRealtimeGateway({
     accessTokens,
     httpServer: server,
     logger: options.logger,
@@ -102,7 +134,9 @@ export async function startApiServer(options: StartApiServerOptions): Promise<vo
     logger: options.logger,
     timeoutMs: options.environment.SHUTDOWN_TIMEOUT_MS,
     close: async () => {
-      await realtime.close();
+      await realtimeRef.current?.close();
+      await passwordResetQueue.close();
+      passwordResetRedis.disconnect();
       if (server.listening) {
         await new Promise<void>((resolve, reject) => {
           server.close((error) => (error === undefined ? resolve() : reject(error)));

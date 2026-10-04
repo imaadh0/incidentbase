@@ -6,6 +6,7 @@ import { z } from 'zod';
 const accessTokenClaimsSchema = z.object({
   sub: z.uuid(),
   tokenUse: z.literal('access'),
+  authVersion: z.number().int().nonnegative(),
 });
 
 export interface AccessTokenClaims {
@@ -17,6 +18,7 @@ export interface AccessTokenServiceOptions {
   expiresInSeconds?: number;
   issuer: string;
   secret: string;
+  getAuthVersion?: (userId: string) => Promise<number | null>;
 }
 
 export class AccessTokenService {
@@ -24,16 +26,20 @@ export class AccessTokenService {
   private readonly expiresInSeconds: number;
   private readonly issuer: string;
   private readonly key: Uint8Array;
+  private readonly getAuthVersion: ((userId: string) => Promise<number | null>) | undefined;
 
   public constructor(options: AccessTokenServiceOptions) {
     this.audience = options.audience;
     this.expiresInSeconds = options.expiresInSeconds ?? 900;
     this.issuer = options.issuer;
     this.key = new TextEncoder().encode(options.secret);
+    this.getAuthVersion = options.getAuthVersion;
   }
 
-  public issue(userId: string): Promise<string> {
-    return new SignJWT({ tokenUse: 'access' })
+  public async issue(userId: string): Promise<string> {
+    const authVersion = this.getAuthVersion ? await this.getAuthVersion(userId) : 0;
+    if (authVersion === null) throw new Error('Account does not exist.');
+    return new SignJWT({ tokenUse: 'access', authVersion })
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setSubject(userId)
       .setIssuer(this.issuer)
@@ -51,7 +57,12 @@ export class AccessTokenService {
         issuer: this.issuer,
       });
       const claims = accessTokenClaimsSchema.safeParse(result.payload);
-      return claims.success ? { userId: claims.data.sub } : null;
+      if (!claims.success) return null;
+      if (this.getAuthVersion) {
+        const current = await this.getAuthVersion(claims.data.sub);
+        if (current === null || current !== claims.data.authVersion) return null;
+      }
+      return { userId: claims.data.sub };
     } catch {
       return null;
     }

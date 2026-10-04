@@ -61,6 +61,19 @@ export function verificationEmail(code: string): EmailContent {
   };
 }
 
+export function passwordResetEmail(url: string): EmailContent {
+  return {
+    subject: 'Reset your IncidentBase password',
+    text: `Open this link to reset your IncidentBase password: ${url}\n\nThe link expires in 30 minutes and can be used once. If you did not request this, ignore this email.`,
+    html: layout(
+      'Reset your password',
+      'We received a request to reset your IncidentBase password.',
+      'This link expires in 30 minutes and can be used once.',
+      { label: 'Reset password', url },
+    ),
+  };
+}
+
 export function notificationEmail(subject: string, body: string): EmailContent {
   return {
     subject,

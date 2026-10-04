@@ -40,6 +40,66 @@ test('registration explains invalid fields inline and accepts a ten-character pa
   await form.getByRole('button', { name: 'Create workspace' }).click();
   await verifyEmail(page, `short-${suffix}@example.test`);
   await expect(page).toHaveURL(/\/app$/);
+  const welcome = page.getByRole('dialog', { name: 'Your workspace is ready.' });
+  await expect(welcome).toBeVisible();
+  await page.waitForTimeout(2300);
+  await expect(welcome).toBeVisible();
+  await welcome.getByRole('button', { name: 'Open workspace' }).click();
+  await expect(welcome).toHaveCount(0);
+});
+
+test('forgot password sends a single-use link and signs out existing sessions', async ({
+  browser,
+  page,
+}) => {
+  const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const email = `reset-${suffix}@example.test`;
+  await register(page, 'Reset Owner', email, `reset-${suffix}`);
+  const recovery = await browser.newContext({
+    baseURL: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8080',
+  });
+  try {
+    const resetPage = await recovery.newPage();
+    await resetPage.goto('/sign-in');
+    await resetPage.getByRole('link', { name: 'Forgot password?' }).click();
+    await resetPage.getByLabel('Email').fill(email);
+    await resetPage.getByRole('button', { name: 'Send reset link' }).click();
+    await expect(resetPage.getByRole('heading', { name: 'Check your inbox' })).toBeVisible();
+    const captureUrl = process.env.E2E_MAIL_CAPTURE_URL ?? 'http://127.0.0.1:8080/__e2e_mail';
+    let link: string | undefined;
+    await expect
+      .poll(
+        async () => {
+          const response = await fetch(`${captureUrl}/messages?to=${encodeURIComponent(email)}`);
+          const result = (await response.json()) as { data: { text: string } | null };
+          link = /https?:\/\/[^\s]+\/reset-password\?token=[A-Za-z0-9_-]{43}/u.exec(
+            result.data?.text ?? '',
+          )?.[0];
+          return link;
+        },
+        { timeout: 15_000 },
+      )
+      .toBeTruthy();
+    await resetPage.goto(browserLink(link!));
+    await expect(resetPage).toHaveURL(/\/reset-password$/u);
+    await resetPage.getByLabel('New password', { exact: true }).fill('new-password-2026!');
+    await resetPage.getByLabel('Confirm new password').fill('new-password-2026!');
+    await resetPage.getByRole('button', { name: 'Update password' }).click();
+    await expect(resetPage.getByRole('heading', { name: 'Password updated' })).toBeVisible();
+    expect((await api<Account>(page, '/auth/me')).status).toBe(401);
+    await resetPage.goto(browserLink(link!));
+    await resetPage.getByLabel('New password', { exact: true }).fill('another-password-2026!');
+    await resetPage.getByLabel('Confirm new password').fill('another-password-2026!');
+    await resetPage.getByRole('button', { name: 'Update password' }).click();
+    await expect(resetPage.locator('#reset-error')).toContainText('invalid or has expired');
+    await resetPage.goto('/sign-in');
+    await resetPage.getByLabel('Email').fill(email);
+    await resetPage.getByLabel('Password').fill('new-password-2026!');
+    await resetPage.getByRole('button', { name: 'Sign in', exact: true }).last().click();
+    await expect(resetPage).toHaveURL(/\/app$/u);
+  } finally {
+    await recovery.close();
+  }
 });
 
 test('a new invitee opens account creation and confirms the password before joining', async ({
@@ -80,6 +140,7 @@ test('a new invitee opens account creation and confirms the password before join
     await form.getByRole('button', { name: 'Create account and join' }).click();
     await verifyEmail(invitee, email);
     await expect(invitee).toHaveURL(/\/app$/);
+    await enterWorkspace(invitee);
     const account = await api<Account>(invitee, '/auth/me');
     expect(account.status).toBe(200);
     expect(account.data!.memberships).toEqual([
@@ -212,8 +273,14 @@ test('a user can personalize a profile and keep it after refreshing', async ({ p
   await page.getByLabel('Display name').fill('Avery Response');
   await page.getByText('violet', { exact: true }).click();
   await expect(page.getByRole('radio', { name: 'violet' })).toBeChecked();
+  await expect(page.locator('html')).toHaveAttribute('data-action-theme', 'blue');
+  await expect(page.getByRole('button', { name: 'Save profile' })).toHaveCSS(
+    'background-image',
+    /rgb\(101, 66, 182\)/u,
+  );
   await page.getByRole('button', { name: 'Save profile' }).click();
   await expect(page.getByText('Profile saved.')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-action-theme', 'violet');
   await expect(page.locator('.sidebar-footer .user-card strong')).toHaveText('Avery Response');
   await expect(page.locator('.sidebar-footer .user-avatar')).toHaveAttribute(
     'data-avatar-color',
@@ -225,6 +292,12 @@ test('a user can personalize a profile and keep it after refreshing', async ({ p
   await expect(page.locator('.sidebar-footer .user-avatar')).toHaveAttribute(
     'data-avatar-color',
     'violet',
+  );
+  await expect(page.locator('html')).toHaveAttribute('data-action-theme', 'violet');
+  await page.getByRole('link', { name: 'Overview' }).click();
+  await expect(page.getByRole('button', { name: 'New incident' })).toHaveCSS(
+    'background-image',
+    /rgb\(101, 66, 182\)/u,
   );
 });
 
@@ -278,7 +351,8 @@ async function register(page: Page, name: string, email: string, slug: string) {
   await form.getByLabel('Confirm password').fill(password);
   await form.getByRole('button', { name: 'Create workspace' }).click();
   await verifyEmail(page, email);
-  await expect(page).toHaveURL(/\/app$/);
+  await expect(page).toHaveURL(/\/app$/, { timeout: 15_000 });
+  await enterWorkspace(page);
   await expect(page.getByRole('heading', { name: 'Response overview' })).toBeVisible();
   const account = await api<Account>(page, '/auth/me');
   expect(account.status).toBe(200);
@@ -294,7 +368,17 @@ async function verifyEmail(page: Page, email: string) {
   const code = /code is (\d{6})/u.exec(result.data?.text ?? '')?.[1];
   if (!code) throw new Error(`No verification code was captured for ${email}.`);
   await page.getByLabel('Verification code').fill(code);
+  const verificationResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith('/auth/verify-email'),
+  );
   await page.getByRole('button', { name: 'Verify and continue' }).click();
+  const completed = await verificationResponse;
+  if (!completed.ok()) {
+    const body = (await completed.json()) as { error?: { code?: string; message?: string } };
+    throw new Error(
+      `Email verification failed: HTTP ${completed.status()} ${body.error?.code ?? ''} ${body.error?.message ?? ''}`,
+    );
+  }
 }
 
 async function invite(owner: Page, email: string) {
@@ -313,7 +397,14 @@ async function invite(owner: Page, email: string) {
   await owner.getByRole('button', { name: 'Copy invitation link' }).click();
   await expect(owner.getByRole('button', { name: 'Copy invitation link' })).toContainText('Copied');
   expect(await owner.evaluate(() => navigator.clipboard.readText())).toBe(invitationUrl);
-  return invitationUrl;
+  return browserLink(invitationUrl);
+}
+
+function browserLink(link: string): string {
+  const base = process.env.E2E_BASE_URL;
+  if (!base) return link;
+  const target = new URL(link);
+  return new URL(`${target.pathname}${target.search}${target.hash}`, base).toString();
 }
 
 async function acceptInvitation(page: Page, link: string, email: string) {
@@ -355,6 +446,14 @@ async function acceptInvitation(page: Page, link: string, email: string) {
   } finally {
     page.off('response', recordAuthResponse);
   }
+  await enterWorkspace(page);
+}
+
+async function enterWorkspace(page: Page) {
+  const welcome = page.getByRole('dialog', { name: /Your workspace is ready|Welcome back/u });
+  await expect(welcome).toBeVisible();
+  await welcome.getByRole('button', { name: 'Open workspace' }).click();
+  await expect(welcome).toHaveCount(0);
 }
 
 async function createResponder(browser: Browser, owner: Page, name: string, slug: string) {

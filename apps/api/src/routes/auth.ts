@@ -4,6 +4,8 @@ import type { AccessTokenService } from '@incidentbase/auth';
 import {
   inviteeRegistrationRequestSchema,
   loginRequestSchema,
+  forgotPasswordRequestSchema,
+  resetPasswordRequestSchema,
   registerRequestSchema,
   verificationRequestSchema,
   resendVerificationRequestSchema,
@@ -273,6 +275,31 @@ export function createAuthRouter(options: AuthRouterOptions): Router {
       if (error instanceof AuthenticationServiceError) throw mapServiceError(error);
       throw error;
     }
+  });
+
+  router.post('/auth/forgot-password', async (request, response) => {
+    const body = forgotPasswordRequestSchema.safeParse(request.body);
+    if (!body.success) throw invalidRequest();
+    await options.service.requestPasswordReset(body.data.email);
+    response.set('Cache-Control', 'no-store');
+    response
+      .status(202)
+      .json({ data: { message: 'If that email has an account, a reset link is on its way.' } });
+  });
+
+  router.post('/auth/reset-password', async (request, response) => {
+    const body = resetPasswordRequestSchema.safeParse(request.body);
+    if (!body.success) throw invalidRequest();
+    const completed = await options.service.resetPassword(body.data.token, body.data.password);
+    response.set('Cache-Control', 'no-store');
+    if (!completed)
+      throw new ApplicationError({
+        code: 'RESET_LINK_INVALID',
+        message: 'This reset link is invalid or has expired. Request a new link.',
+        statusCode: 400,
+      });
+    clearSessionCookies(response, options);
+    response.status(204).send();
   });
 
   router.post('/auth/refresh', async (request, response) => {

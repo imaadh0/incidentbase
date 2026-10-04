@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "node init && tsup src/index.ts --format esm --dts --clean",
     "lint": "eslint src test",
     "test": "vitest run --pool=threads --maxWorkers=1",
     "test:coverage": "vitest run --coverage --pool=threads --maxWorkers=1",

@@ -218,4 +218,29 @@ describeWithDatabase.sequential('authentication database boundary', () => {
       authentication.consumePasswordReset('expired-reset', 'never-used'),
     ).resolves.toBeNull();
   });
+
+  it('allows an existing account without an email verification timestamp to reset', async () => {
+    const userId = randomUUID();
+    await database.user.create({
+      data: {
+        id: userId,
+        displayName: 'Legacy User',
+        email: 'legacy-user@example.test',
+        passwordHash: 'old-hash',
+      },
+    });
+    await expect(
+      authentication.preparePasswordReset(
+        ' LEGACY-USER@example.test ',
+        'legacy-reset',
+        new Date(Date.now() + 60_000),
+      ),
+    ).resolves.toBe(true);
+    await expect(authentication.consumePasswordReset('legacy-reset', 'new-hash')).resolves.toBe(
+      userId,
+    );
+    const resetUser = await database.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(resetUser.passwordHash).toBe('new-hash');
+    expect(resetUser.emailVerifiedAt).toBeInstanceOf(Date);
+  });
 });

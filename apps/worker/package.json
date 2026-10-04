@@ -5,10 +5,10 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm --sourcemap --clean",
-    "dev": "tsx watch src/index.ts",
+    "build": "node init && tsup src/index.ts --format esm --sourcemap --clean",
+    "dev": "node init && tsx watch src/index.ts",
     "lint": "eslint src test",
-    "start": "node --enable-source-maps dist/index.js",
+    "start": "node init && node --enable-source-maps dist/index.js",
     "test": "vitest run --pool=threads --maxWorkers=1",
     "test:coverage": "vitest run --coverage --pool=threads --maxWorkers=1",
     "typecheck": "tsc --noEmit"

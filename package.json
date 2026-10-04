@@ -16,8 +16,8 @@
     ]
   },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
+    "build": "node init && turbo run build",
+    "dev": "node init && turbo run dev --parallel",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "turbo run lint && eslint playwright.config.ts e2e",
